@@ -1,0 +1,8 @@
+{
+  "name": "K&F STORE - Akun Advance Server & Top Up BB Coin",
+  "description": "K&F STORE - Toko resmi Akun Mobile Legends Advance Server siap pakai (pengiriman data login langsung di website) dan Top Up Diamond murah via konversi BB Coin otomatis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
