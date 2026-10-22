@@ -98,8 +98,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
                 <a href="#garansi" className="hover:text-blue-400 transition-colors">Kebijakan Garansi Akun</a>
               </li>
               <li>
-                <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                  CS WhatsApp ASTERA STORE (0812-3456-7890)
+                <a
+                  href="https://wa.me/6282312088548"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:underline font-semibold"
+                >
+                  CS WhatsApp ASTERA STORE (+62 823-1208-8548)
                 </a>
               </li>
               <li className="text-[11px] text-amber-400/90 pt-1 font-medium">

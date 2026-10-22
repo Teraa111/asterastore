@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Order } from '../types/store';
 import { formatIDR } from '../utils/currency';
-import { triggerAutomaticFulfillment } from '../utils/storage';
+import { triggerAutomaticFulfillment, getPaymentConfig } from '../utils/storage';
 import {
   X,
   CheckCircle2,

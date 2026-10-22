@@ -305,3 +305,55 @@ export function verifyAdminPin(inputPin: string): boolean {
   const currentPin = getAdminPin();
   return inputPin.trim() === currentPin.trim();
 }
+
+// ==========================================
+// PAYMENT CONFIG & DANA QRIS SETTINGS
+// ==========================================
+export interface AdminPaymentConfig {
+  adminPhone: string;
+  adminWhatsappUrl: string;
+  danaNumber: string;
+  danaAccountName: string;
+  gopayNumber: string;
+  gopayAccountName: string;
+  qrisMerchantName: string;
+  qrisNmid: string;
+  qrisCustomImageUrl?: string;
+}
+
+export const DEFAULT_PAYMENT_CONFIG: AdminPaymentConfig = {
+  adminPhone: '+62 823-1208-8548',
+  adminWhatsappUrl: 'https://wa.me/6282312088548',
+  danaNumber: '0823-1208-8548',
+  danaAccountName: 'ASTERA STORE',
+  gopayNumber: '0823-1208-8548',
+  gopayAccountName: 'ASTERA STORE',
+  qrisMerchantName: 'ASTERA STORE',
+  qrisNmid: 'ID99281726481 (DANA BISNIS ASTERA STORE)',
+  qrisCustomImageUrl: '',
+};
+
+const PAYMENT_CONFIG_KEY = 'storeadv_payment_config_v2';
+
+export function getPaymentConfig(): AdminPaymentConfig {
+  try {
+    const raw = localStorage.getItem(PAYMENT_CONFIG_KEY);
+    if (!raw) return DEFAULT_PAYMENT_CONFIG;
+    return { ...DEFAULT_PAYMENT_CONFIG, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_PAYMENT_CONFIG;
+  }
+}
+
+export function savePaymentConfig(config: Partial<AdminPaymentConfig>): AdminPaymentConfig {
+  try {
+    const current = getPaymentConfig();
+    const updated = { ...current, ...config };
+    localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('storeadv_payment_config_updated'));
+    return updated;
+  } catch {
+    return DEFAULT_PAYMENT_CONFIG;
+  }
+}
+
