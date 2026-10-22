@@ -63,7 +63,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
 
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-blue-400 font-bold text-xs">K&F STORE</span>
+            <span className="text-blue-400 font-bold text-xs">Aster4 STORE</span>
             <span className="text-neutral-600">·</span>
             <span className="text-neutral-400 text-xs">Pelacakan Transaksi</span>
           </div>
@@ -71,7 +71,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
             Lacak Pesanan Top Up
           </h3>
           <p className="text-xs text-neutral-400 mt-1">
-            Masukkan Nomor Invoice (contoh: KF-261020-8912) atau Nomor WhatsApp yang digunakan saat order.
+            Masukkan Nomor Invoice (contoh: AST-261020-8912) atau Nomor WhatsApp yang digunakan saat order.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ketik Nomor Invoice (KF-...) atau No WhatsApp..."
+              placeholder="Ketik Nomor Invoice (AST-...) atau No WhatsApp..."
               className="w-full pl-10 pr-4 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -187,7 +187,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
 
           {!hasSearched && (
             <div className="p-4 rounded-xl bg-neutral-950/60 border border-neutral-800 text-center text-xs text-neutral-400">
-              <p>Riwayat pesanan di K&F STORE tersimpan secara aman di peramban Anda.</p>
+              <p>Riwayat pesanan di Aster4 STORE tersimpan secara aman di peramban Anda.</p>
               <p className="mt-1 text-[11px] text-neutral-500">
                 Punya kendala transaksi? Hubungi CS WhatsApp resmi kami untuk respon instan.
               </p>

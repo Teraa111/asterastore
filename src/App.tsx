@@ -8,6 +8,7 @@ import { TopUpOrderEngine } from './components/TopUpOrderEngine';
 import { PaymentModal } from './components/PaymentModal';
 import { OrderTrackerModal } from './components/OrderTrackerModal';
 import { AdminInventory } from './components/AdminInventory';
+import { AdminAuthModal } from './components/AdminAuthModal';
 import { MlCalculatorModal } from './components/MlCalculatorModal';
 import { Footer } from './components/Footer';
 import { Sparkles, Key, Coins, ShieldCheck, Zap } from 'lucide-react';
@@ -16,6 +17,16 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'store' | 'admin'>('store');
   const [products, setProducts] = useState<ProductCatalog[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<ProductCatalog | null>(null);
+
+  // Admin authentication state (protected by PIN)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('storeadv_admin_session') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [isAdminAuthOpen, setIsAdminAuthOpen] = useState(false);
 
   // Modals
   const [activePaymentOrder, setActivePaymentOrder] = useState<Order | null>(null);
@@ -48,25 +59,75 @@ export default function App() {
     setActivePaymentOrder(order);
   };
 
+  // Admin security handlers
+  const handleRequestAdminAccess = () => {
+    if (isAdminAuthenticated) {
+      setCurrentView('admin');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setIsAdminAuthOpen(true);
+    }
+  };
+
+  const handleAdminAuthSuccess = () => {
+    setIsAdminAuthenticated(true);
+    try {
+      sessionStorage.setItem('storeadv_admin_session', 'true');
+    } catch {
+      // ignore
+    }
+    setIsAdminAuthOpen(false);
+    setCurrentView('admin');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    try {
+      sessionStorage.removeItem('storeadv_admin_session');
+    } catch {
+      // ignore
+    }
+    setCurrentView('store');
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-100 font-sans selection:bg-blue-600 selection:text-white">
       {/* Universal Top Bar */}
       <Navbar
         currentView={currentView}
+        isAdminAuthenticated={isAdminAuthenticated}
         onNavigate={(view) => {
-          setCurrentView(view);
-          if (view === 'store') setSelectedProduct(null);
+          if (view === 'admin') {
+            handleRequestAdminAccess();
+          } else {
+            setCurrentView('store');
+            setSelectedProduct(null);
+          }
         }}
         onOpenTracker={() => setIsTrackerOpen(true)}
         onOpenCalculator={() => setIsCalculatorOpen(true)}
         onSelectProduct={handleSelectProductId}
+        onAdminLogout={handleAdminLogout}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
         {currentView === 'admin' ? (
-          /* ENTERPRISE INVENTORY & ORDER MANAGEMENT PORTAL */
-          <AdminInventory />
+          isAdminAuthenticated ? (
+            /* ENTERPRISE INVENTORY & ORDER MANAGEMENT PORTAL */
+            <AdminInventory
+              onLogout={handleAdminLogout}
+              onBackToStore={() => {
+                setSelectedProduct(null);
+                setCurrentView('store');
+              }}
+            />
+          ) : (
+            <div className="py-20 text-center">
+              <p className="text-neutral-400">Memerlukan autentikasi PIN...</p>
+            </div>
+          )
         ) : selectedProduct ? (
           /* DEDICATED ORDER ENGINE FOR THE SELECTED PRODUCT */
           <TopUpOrderEngine
@@ -120,7 +181,7 @@ export default function App() {
             <div className="mb-6 pb-3 border-b border-neutral-800 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-white tracking-tight">
-                  Pilih Layanan Utama K&F STORE
+                  Pilih Layanan Utama Aster4 STORE
                 </h2>
                 <p className="text-xs text-neutral-400 mt-0.5">
                   Tersedia 2 produk spesialis Mobile Legends dengan sistem inventaris dan pengiriman otomatis.
@@ -150,7 +211,14 @@ export default function App() {
       </main>
 
       {/* Universal Footer */}
-      <Footer />
+      <Footer onOpenAdminAuth={handleRequestAdminAccess} />
+
+      {/* Admin Security PIN Authentication Modal */}
+      <AdminAuthModal
+        isOpen={isAdminAuthOpen}
+        onClose={() => setIsAdminAuthOpen(false)}
+        onAuthenticated={handleAdminAuthSuccess}
+      />
 
       {/* Automatic Payment Invoice Modal with direct account credentials delivery */}
       {activePaymentOrder && (

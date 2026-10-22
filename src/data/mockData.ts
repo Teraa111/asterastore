@@ -44,8 +44,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
         accountPool: [
           {
             id: 'acc-001',
-            email: 'adv.kfstore01@kfmail-store.com',
-            password: 'KFAdvPass#2026',
+            email: 'adv.aster4store01@aster4-mail.com',
+            password: 'Aster4Pass#2026',
             serverInfo: 'Server 5701 (Advance Server ID)',
             bindType: 'Moonton Sepaket Email',
             level: 8,
@@ -55,8 +55,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
           },
           {
             id: 'acc-002',
-            email: 'adv.proplayer02@kfmail-store.com',
-            password: 'Ranked#2026KF',
+            email: 'adv.aster4pro02@aster4-mail.com',
+            password: 'Ranked#2026A4',
             serverInfo: 'Server 5702 (Advance Server ID)',
             bindType: 'Moonton Sepaket Email',
             level: 8,
@@ -66,8 +66,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
           },
           {
             id: 'acc-003',
-            email: 'adv.speedy03@kfmail-store.com',
-            password: 'Moonton2026#KF',
+            email: 'adv.aster4speed03@aster4-mail.com',
+            password: 'Moonton2026#A4',
             serverInfo: 'Server 5701 (Advance Server ID)',
             bindType: 'Moonton Sepaket Email',
             level: 9,
@@ -77,8 +77,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
           },
           {
             id: 'acc-004',
-            email: 'adv.clover04@kfmail-store.com',
-            password: 'CloverAdv#KF99',
+            email: 'adv.aster4clover04@aster4-mail.com',
+            password: 'CloverAdv#A499',
             serverInfo: 'Server 5705 (Advance Server ID)',
             bindType: 'Moonton Sepaket Email',
             level: 8,
@@ -111,8 +111,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
         accountPool: [
           {
             id: 'acc-005',
-            email: 'adv.rankedhero05@kfmail-store.com',
-            password: 'MasterKF#2026',
+            email: 'adv.aster4ranked05@aster4-mail.com',
+            password: 'MasterA4#2026',
             serverInfo: 'Server 5702 (Advance Server)',
             bindType: 'Moonton Sepaket Email',
             level: 12,
@@ -122,8 +122,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
           },
           {
             id: 'acc-006',
-            email: 'adv.rankedhero06@kfmail-store.com',
-            password: 'RankAdvance#KF99',
+            email: 'adv.aster4ranked06@aster4-mail.com',
+            password: 'RankAdvance#A499',
             serverInfo: 'Server 5702 (Advance Server)',
             bindType: 'Moonton Sepaket Email',
             level: 13,
@@ -156,8 +156,8 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
         accountPool: [
           {
             id: 'acc-007',
-            email: 'adv.sultan07@kfmail-store.com',
-            password: 'SultanKF#2026VIP',
+            email: 'adv.aster4sultan07@aster4-mail.com',
+            password: 'SultanA4#2026VIP',
             serverInfo: 'Server 5701 (Advance Server)',
             bindType: 'Moonton Sepaket Email',
             level: 21,
@@ -310,7 +310,7 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
           'Buka aplikasi e-Wallet apa saja (GoPay, DANA, OVO, ShopeePay, LinkAja) atau m-Banking (BCA, Mandiri, BRI, BNI).',
           'Pilih menu Scan / Bayar QR.',
           'Scan kode QRIS yang tampil di layar atau upload tangkapan layar kode QR.',
-          'Pastikan nama merchant "K&F STORE INDONESIA" dan nominal sesuai.',
+          'Pastikan nama merchant "Aster4 STORE INDONESIA" dan nominal sesuai.',
           'Masukkan PIN pembayaran. Data akun atau Diamond akan langsung terkirim otomatis di layar website dalam 1-3 detik!',
         ],
       },
@@ -393,7 +393,7 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
         steps: [
           'Pilih menu m-Transfer > BCA Virtual Account.',
           'Masukkan nomor Virtual Account yang tertera.',
-          'Pastikan nama tagihan K&F STORE dan total bayar cocok persis.',
+          'Pastikan nama tagihan Aster4 STORE dan total bayar cocok persis.',
           'Masukkan PIN m-BCA untuk menyelesaikan transaksi.',
         ],
       },
@@ -413,7 +413,7 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
       {
         title: 'Livin by Mandiri',
         steps: [
-          'Login Livin by Mandiri > Bayar > Cari Penyedia Jasa: K&F STORE.',
+          'Login Livin by Mandiri > Bayar > Cari Penyedia Jasa: Aster4 STORE.',
           'Tempel nomor Virtual Account.',
           'Konfirmasi dan masukkan PIN Livin.',
         ],
@@ -476,7 +476,7 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
       {
         title: 'Bayar di Kasir Alfamart',
         steps: [
-          'Sampaikan ke kasir ingin membayar Merchant K&F STORE.',
+          'Sampaikan ke kasir ingin membayar Merchant Aster4 STORE.',
           'Tunjukkan kode pembayaran / nomor tagihan.',
           'Bayar tunai sesuai nominal ke kasir dan simpan struk pembayaran.',
         ],
@@ -488,7 +488,7 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
 export const INITIAL_PROMO_CODES: PromoCode[] = [
   {
     id: 'promo-1',
-    code: 'KFHEMAT',
+    code: 'ASTER4HEMAT',
     discountPercent: 10,
     maxDiscount: 15000,
     minSpend: 20000,
@@ -499,7 +499,7 @@ export const INITIAL_PROMO_CODES: PromoCode[] = [
   },
   {
     id: 'promo-2',
-    code: 'KFBOOM',
+    code: 'ASTER4BOOM',
     discountPercent: 15,
     maxDiscount: 25000,
     minSpend: 50000,
@@ -510,7 +510,7 @@ export const INITIAL_PROMO_CODES: PromoCode[] = [
   },
   {
     id: 'promo-3',
-    code: 'KFSULTAN',
+    code: 'ASTER4SULTAN',
     discountPercent: 8,
     maxDiscount: 12000,
     minSpend: 40000,
@@ -523,7 +523,7 @@ export const INITIAL_PROMO_CODES: PromoCode[] = [
 
 export const INITIAL_ORDERS: Order[] = [
   {
-    id: 'KF-261020-8912',
+    id: 'A4-261020-8912',
     createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     productType: 'advance_account',
     productId: 'mlbb-advance-server',
@@ -538,15 +538,15 @@ export const INITIAL_ORDERS: Order[] = [
     subtotal: 49000,
     fee: 343,
     discount: 4900,
-    promoCode: 'KFHEMAT',
+    promoCode: 'ASTER4HEMAT',
     totalAmount: 44443,
     status: 'SUCCESS',
     paidAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
     completedAt: new Date(Date.now() - 1000 * 60 * 14 + 2500).toISOString(),
-    serialNumberDelivery: 'KF-ACC-20261020-8819',
+    serialNumberDelivery: 'A4-ACC-20261020-8819',
     accountDelivered: {
-      email: 'adv.kfstore01@kfmail-store.com',
-      password: 'KFAdvPass#2026',
+      email: 'adv.aster4store01@aster4-mail.com',
+      password: 'Aster4Pass#2026',
       serverInfo: 'Server 5701 (Advance Server ID)',
       bindType: 'Moonton Sepaket Email',
       notes: 'Login ke Mobile Legends > Ganti Akun > Moonton Account. Gunakan kredensial ini. Akun sudah langsung di Advance Server!',
@@ -558,7 +558,7 @@ export const INITIAL_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'KF-261020-7419',
+    id: 'A4-261020-7419',
     createdAt: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
     productType: 'bbcoin_diamond',
     productId: 'mlbb-bbcoin',

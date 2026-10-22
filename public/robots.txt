@@ -1,0 +1,6 @@
+# robots.txt for Aster4 STORE
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: /sitemap.xml

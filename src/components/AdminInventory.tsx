@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ProductCatalog, Order, PromoCode, DenominationItem, AccountCredential } from '../types/store';
-import { loadProducts, saveProducts, loadOrders, saveOrders, loadPromos, savePromos, calculateMetrics, triggerAutomaticFulfillment } from '../utils/storage';
+import { loadProducts, saveProducts, loadOrders, saveOrders, loadPromos, savePromos, calculateMetrics, triggerAutomaticFulfillment, getAdminPin, setAdminPin } from '../utils/storage';
 import { formatIDR, formatNumber } from '../utils/currency';
 import {
   TrendingUp,
@@ -28,9 +28,21 @@ import {
   HelpCircle,
   Layers,
   FileText,
+  Lock,
+  LogOut,
+  KeyRound,
+  Power,
+  Ban,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 
-export const AdminInventory: React.FC = () => {
+interface AdminInventoryProps {
+  onLogout?: () => void;
+  onBackToStore?: () => void;
+}
+
+export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBackToStore }) => {
   const [activeTab, setActiveTab] = useState<'accounts' | 'bbcoin' | 'orders' | 'promos' | 'guide'>('accounts');
 
   // Core data states
@@ -53,6 +65,23 @@ export const AdminInventory: React.FC = () => {
 
   const [editingItem, setEditingItem] = useState<{ productId: string; item: DenominationItem } | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+
+  // PIN Management states
+  const [showChangePinModal, setShowChangePinModal] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [pinChangeError, setPinChangeError] = useState('');
+  const [pinChangeSuccess, setPinChangeSuccess] = useState(false);
+
+  // Status Action Toast Notification
+  const [toastNotice, setToastNotice] = useState<{ message: string; type: 'success' | 'warning' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'warning' = 'success') => {
+    setToastNotice({ message, type });
+    setTimeout(() => {
+      setToastNotice(null);
+    }, 4500);
+  };
 
   // Sync from storage
   const refreshData = () => {
@@ -168,6 +197,119 @@ export const AdminInventory: React.FC = () => {
     saveProducts(updated);
     setProducts(updated);
     setEditingItem(null);
+    showToast('Perubahan produk & status berhasil disimpan ke database!');
+  };
+
+  // Toggle Entire Product Status (Matikan Penjualan Toko / Buka Kembali)
+  const handleToggleProductStatus = (productId: string) => {
+    const updated = products.map((p) => {
+      if (p.id === productId) {
+        const nextStatus = p.isActive === false ? true : false;
+        return {
+          ...p,
+          isActive: nextStatus,
+        };
+      }
+      return p;
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+    const target = updated.find((p) => p.id === productId);
+    if (target?.isActive === false) {
+      showToast(`🔴 Produk "${target.title}" BERHASIL DIMATIKAN! Pembeli di website tidak bisa memesan produk ini karena stok kosong.`, 'warning');
+    } else {
+      showToast(`🟢 Produk "${target?.title}" BERHASIL DIAKTIFKAN KEMBALI! Penjualan toko dibuka kembali.`, 'success');
+    }
+  };
+
+  // Toggle Specific Package / Denomination Status
+  const handleToggleDenomStatus = (productId: string, denomId: string) => {
+    let affectedName = '';
+    let newStatus = true;
+
+    const updated = products.map((p) => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          denominations: p.denominations.map((d) => {
+            if (d.id === denomId) {
+              affectedName = d.name;
+              newStatus = d.isActive === false ? true : false;
+              return {
+                ...d,
+                isActive: newStatus,
+              };
+            }
+            return d;
+          }),
+        };
+      }
+      return p;
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+
+    if (!newStatus) {
+      showToast(`🔴 Paket "${affectedName}" BERHASIL DIMATIKAN (Stok Kosong). Pembeli tidak bisa memilih paket ini di website.`, 'warning');
+    } else {
+      showToast(`🟢 Paket "${affectedName}" BERHASIL DIAKTIFKAN KEMBALI (Tersedia untuk pembeli).`, 'success');
+    }
+  };
+
+  // Auto-disable all denomination packages with 0 ready stock
+  const handleAutoDisableEmptyStock = (productId: string) => {
+    let disabledCount = 0;
+    const updated = products.map((p) => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          denominations: p.denominations.map((d) => {
+            const unsold = d.accountPool ? d.accountPool.filter((a) => !a.isSold).length : d.stockCount;
+            if (unsold <= 0 && d.isActive !== false) {
+              disabledCount++;
+              return {
+                ...d,
+                isActive: false,
+              };
+            }
+            return d;
+          }),
+        };
+      }
+      return p;
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+
+    if (disabledCount > 0) {
+      showToast(`⚡ Berhasil mematikan ${disabledCount} paket yang stok akunnya 0! Pembeli tidak bisa order paket kosong ini.`, 'warning');
+    } else {
+      showToast(`Semua paket yang stoknya 0 sudah dalam status nonaktif.`, 'success');
+    }
+  };
+
+  // Bulk enable all packages in a product
+  const handleEnableAllPackages = (productId: string) => {
+    const updated = products.map((p) => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          isActive: true,
+          denominations: p.denominations.map((d) => ({
+            ...d,
+            isActive: true,
+          })),
+        };
+      }
+      return p;
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+    showToast(`🟢 Seluruh paket produk berhasil diaktifkan kembali!`, 'success');
   };
 
   // Export CSV
@@ -205,10 +347,36 @@ export const AdminInventory: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `KF_STORE_Laporan_Transaksi_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Aster4_STORE_Laporan_Transaksi_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleSaveNewPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPinInput || newPinInput.trim().length < 4) {
+      setPinChangeError('PIN keamanan minimal 4 digit.');
+      return;
+    }
+    if (newPinInput.trim() !== confirmPinInput.trim()) {
+      setPinChangeError('Konfirmasi PIN tidak cocok!');
+      return;
+    }
+
+    const success = setAdminPin(newPinInput.trim());
+    if (success) {
+      setPinChangeSuccess(true);
+      setPinChangeError('');
+      setTimeout(() => {
+        setShowChangePinModal(false);
+        setPinChangeSuccess(false);
+        setNewPinInput('');
+        setConfirmPinInput('');
+      }, 1200);
+    } else {
+      setPinChangeError('Gagal menyimpan PIN baru.');
+    }
   };
 
   return (
@@ -218,10 +386,12 @@ export const AdminInventory: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-blue-400 font-bold text-xs tracking-wider uppercase">
-              K&F STORE Enterprise Portal
+              Aster4 STORE Enterprise Portal
             </span>
             <span className="text-neutral-600">·</span>
-            <span className="text-emerald-400 text-xs font-medium">Sistem Pengiriman Otomatis Aktif</span>
+            <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
+              <Lock className="w-3 h-3" /> Brankas Terproteksi PIN
+            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             Manajemen Stok Akun Advance Server & BB Coin
@@ -231,24 +401,74 @@ export const AdminInventory: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => {
+              setPinChangeError('');
+              setPinChangeSuccess(false);
+              setNewPinInput('');
+              setConfirmPinInput('');
+              setShowChangePinModal(true);
+            }}
+            className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-semibold rounded-xl border border-neutral-800 flex items-center gap-1.5 transition-all"
+            title="Ubah PIN Keamanan Brankas"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+            <span>Ganti PIN</span>
+          </button>
+
           <button
             onClick={() => setShowAddAccountModal(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shadow-blue-600/30"
+            className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/30"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Stok Akun</span>
+            <span>Tambah Stok</span>
           </button>
 
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-xl border border-neutral-700 flex items-center gap-2 transition-all active:scale-95"
+            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-xl border border-neutral-700 flex items-center gap-1.5 transition-all active:scale-95"
           >
             <Download className="w-3.5 h-3.5 text-blue-400" />
-            <span>Export CSV</span>
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="px-3.5 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-red-200 text-xs font-semibold rounded-xl border border-red-800/50 flex items-center gap-1.5 transition-all active:scale-95"
+              title="Keluar dari Panel Admin & Kunci Brankas"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Kunci Brankas</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Floating or Top Toast Alert for Actions */}
+      {toastNotice && (
+        <div className={`mb-6 p-4 rounded-xl border flex items-center justify-between shadow-lg transition-all animate-in fade-in slide-in-from-top-2 ${
+          toastNotice.type === 'warning'
+            ? 'bg-red-950/90 border-red-700 text-red-200'
+            : 'bg-emerald-950/90 border-emerald-700 text-emerald-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            {toastNotice.type === 'warning' ? (
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            )}
+            <span className="text-xs sm:text-sm font-semibold">{toastNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setToastNotice(null)}
+            className="p-1 hover:bg-black/30 rounded text-neutral-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -368,46 +588,191 @@ export const AdminInventory: React.FC = () => {
           }`}
         >
           <BookOpen className="w-4 h-4 text-amber-400" />
-          <span>Panduan & Alur Manajemen K&F</span>
+          <span>Panduan & Alur Manajemen Aster4 STORE</span>
         </button>
       </div>
 
       {/* ================= TAB 1: BRANKAS STOK AKUN ADVANCE SERVER ================= */}
       {activeTab === 'accounts' && accountProduct && (
         <div className="space-y-6">
-          {/* Package Summary strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {accountProduct.denominations.map((denom) => {
-              const unsold = denom.accountPool?.filter((a) => !a.isSold).length || 0;
-              const sold = denom.accountPool?.filter((a) => a.isSold).length || 0;
-
-              return (
-                <div key={denom.id} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-white text-xs">{denom.name}</span>
-                    <button
-                      onClick={() => setEditingItem({ productId: accountProduct.id, item: { ...denom } })}
-                      className="p-1 rounded text-blue-400 hover:bg-neutral-800"
-                      title="Edit Harga Paket"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="flex items-baseline justify-between text-xs mt-1">
-                    <span className="text-neutral-400">Harga Jual:</span>
-                    <strong className="text-blue-400 font-mono">{formatIDR(denom.priceSell)}</strong>
-                  </div>
-                  <div className="flex items-baseline justify-between text-xs mt-1">
-                    <span className="text-neutral-400">Modal:</span>
-                    <span className="text-neutral-300 font-mono">{formatIDR(denom.priceBase)}</span>
-                  </div>
-                  <div className="flex items-baseline justify-between text-xs mt-2 pt-2 border-t border-neutral-800">
-                    <span className="text-emerald-400 font-bold">{unsold} Akun Ready</span>
-                    <span className="text-neutral-500">{sold} Terjual</span>
-                  </div>
+          {/* Status Kontrol Penjualan Produk Akun Advance */}
+          <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+            accountProduct.isActive === false
+              ? 'bg-red-950/40 border-red-800/80'
+              : 'bg-neutral-900/90 border-neutral-800'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+                  accountProduct.isActive === false
+                    ? 'bg-red-600/20 text-red-400 border border-red-500/40'
+                    : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
+                }`}>
+                  <Power className="w-5 h-5" />
                 </div>
-              );
-            })}
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-extrabold text-white text-sm sm:text-base">
+                      Status Penjualan Akun Advance Server
+                    </h3>
+                    {accountProduct.isActive === false ? (
+                      <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-white" />
+                        <span>PENJUALAN DIMATIKAN (STOK KOSONG)</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span>TOKO BUKA (TERSEDIA UNTUK PEMBELI)</span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    {accountProduct.isActive === false
+                      ? 'Produk ini sedang dinonaktifkan. Pembeli di website akan melihat status "Stok Kosong" dan tombol checkout dinonaktifkan.'
+                      : 'Produk saat ini aktif dijual di website. Anda dapat mematikan seluruh produk atau memilih mematikan paket tertentu saja jika stok habis.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  onClick={() => handleToggleProductStatus(accountProduct.id)}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-md active:scale-95 ${
+                    accountProduct.isActive === false
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                      : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
+                  }`}
+                  title={accountProduct.isActive === false ? 'Buka kembali penjualan akun' : 'Matikan produk agar pembeli tidak bisa order'}
+                >
+                  <Power className="w-4 h-4" />
+                  <span>
+                    {accountProduct.isActive === false
+                      ? 'Aktifkan Produk Kembali'
+                      : 'Matikan Produk (Stok Kosong)'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => handleAutoDisableEmptyStock(accountProduct.id)}
+                  className="px-3 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  title="Otomatis nonaktifkan semua paket yang akun readynya 0"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Auto-Matikan Paket 0 Stok</span>
+                </button>
+
+                <button
+                  onClick={() => handleEnableAllPackages(accountProduct.id)}
+                  className="px-3 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  title="Aktifkan seluruh paket akun sekaligus"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Aktifkan Semua</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Package Summary strip with Individual Status Toggles */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
+                Pengaturan Paket & Status Ketersediaan Tiap Tipe Akun
+              </h4>
+              <span className="text-[11px] text-neutral-500">
+                Klik tombol "Matikan" pada paket yang habis agar pembeli tidak bisa memilihnya
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {accountProduct.denominations.map((denom) => {
+                const isDenomActive = denom.isActive !== false;
+                const unsold = denom.accountPool?.filter((a) => !a.isSold).length || 0;
+                const sold = denom.accountPool?.filter((a) => a.isSold).length || 0;
+                const isOutOfStock = unsold === 0;
+
+                return (
+                  <div
+                    key={denom.id}
+                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                      !isDenomActive
+                        ? 'bg-red-950/20 border-red-900/60 shadow-inner'
+                        : isOutOfStock
+                        ? 'bg-amber-950/20 border-amber-900/50'
+                        : 'bg-neutral-900 border-neutral-800'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-white text-xs">{denom.name}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setEditingItem({ productId: accountProduct.id, item: { ...denom } })}
+                            className="p-1 rounded text-blue-400 hover:bg-neutral-800"
+                            title="Edit Harga & Pengaturan Paket"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Status badge & fast 1-click toggle */}
+                      <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-neutral-800">
+                        <div>
+                          {!isDenomActive ? (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-red-900/60 text-red-300 border border-red-700 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                              <span>NONAKTIF (KOSONG)</span>
+                            </span>
+                          ) : isOutOfStock ? (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-amber-900/60 text-amber-300 border border-amber-700 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-amber-400" />
+                              <span>READY: 0 AKUN</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              <span>AKTIF (TERSEDIA)</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleDenomStatus(accountProduct.id, denom.id)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                            !isDenomActive
+                              ? 'bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/50'
+                              : 'bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40'
+                          }`}
+                          title={!isDenomActive ? 'Buka penjualan paket ini' : 'Matikan paket ini karena stok kosong'}
+                        >
+                          <Power className="w-3 h-3" />
+                          <span>{!isDenomActive ? 'Aktifkan' : 'Matikan (Kosong)'}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-baseline justify-between text-xs mt-1">
+                        <span className="text-neutral-400">Harga Jual:</span>
+                        <strong className="text-blue-400 font-mono">{formatIDR(denom.priceSell)}</strong>
+                      </div>
+                      <div className="flex items-baseline justify-between text-xs mt-1">
+                        <span className="text-neutral-400">Modal:</span>
+                        <span className="text-neutral-300 font-mono">{formatIDR(denom.priceBase)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-baseline justify-between text-xs mt-3 pt-2 border-t border-neutral-800">
+                      <span className={unsold > 0 ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                        {unsold} Akun Ready
+                      </span>
+                      <span className="text-neutral-500">{sold} Terjual</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* List of Accounts in Pool */}
@@ -475,70 +840,179 @@ export const AdminInventory: React.FC = () => {
 
       {/* ================= TAB 2: BB COIN DENOMINASI ================= */}
       {activeTab === 'bbcoin' && bbCoinProduct && (
-        <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-neutral-800">
-            <div>
-              <h3 className="font-bold text-white text-sm">Paket Top Up BB Coin & Konversi Diamond</h3>
-              <p className="text-xs text-neutral-400">Atur harga modal, harga jual, dan estimasi Diamond yang diterima</p>
+        <div className="space-y-6">
+          {/* Status Kontrol Penjualan Produk BB Coin */}
+          <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+            bbCoinProduct.isActive === false
+              ? 'bg-red-950/40 border-red-800/80'
+              : 'bg-neutral-900/90 border-neutral-800'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+                  bbCoinProduct.isActive === false
+                    ? 'bg-red-600/20 text-red-400 border border-red-500/40'
+                    : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
+                }`}>
+                  <Power className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-extrabold text-white text-sm sm:text-base">
+                      Status Penjualan Top Up BB Coin Diamond
+                    </h3>
+                    {bbCoinProduct.isActive === false ? (
+                      <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-white" />
+                        <span>PENJUALAN DIMATIKAN (STOK KOSONG)</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span>TOKO BUKA (TERSEDIA UNTUK PEMBELI)</span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    {bbCoinProduct.isActive === false
+                      ? 'Penjualan top up BB Coin sedang dimatikan karena kuota injection habis atau antrian penuh. Pembeli tidak bisa memesan di website.'
+                      : 'Penjualan top up BB Coin sedang aktif. Anda bisa mematikan seluruh produk atau mematikan nominal tertentu saja di tabel bawah.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  onClick={() => handleToggleProductStatus(bbCoinProduct.id)}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-md active:scale-95 ${
+                    bbCoinProduct.isActive === false
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                      : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30'
+                  }`}
+                  title={bbCoinProduct.isActive === false ? 'Buka kembali penjualan BB Coin' : 'Matikan produk BB Coin'}
+                >
+                  <Power className="w-4 h-4" />
+                  <span>
+                    {bbCoinProduct.isActive === false
+                      ? 'Aktifkan Penjualan Kembali'
+                      : 'Matikan Penjualan BB Coin'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => handleEnableAllPackages(bbCoinProduct.id)}
+                  className="px-3 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  title="Aktifkan seluruh nominal BB Coin sekaligus"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Aktifkan Semua Nominal</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-neutral-950 text-neutral-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
-                <tr>
-                  <th className="py-3 px-4">Paket BB Coin</th>
-                  <th className="py-3 px-4">Diamond Dihasilkan</th>
-                  <th className="py-3 px-4">Harga Modal</th>
-                  <th className="py-3 px-4">Harga Jual</th>
-                  <th className="py-3 px-4">Margin Laba</th>
-                  <th className="py-3 px-4 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-800/60 text-neutral-300">
-                {bbCoinProduct.denominations.map((item) => {
-                  const profitRp = item.priceSell - item.priceBase;
-                  const profitPercent = Math.round((profitRp / item.priceSell) * 100);
-                  const totalD = (item.diamondAmount || 0) + (item.bonusDiamond || 0);
+          <div className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-neutral-800">
+              <div>
+                <h3 className="font-bold text-white text-sm">Paket Top Up BB Coin & Konversi Diamond</h3>
+                <p className="text-xs text-neutral-400">Atur ketersediaan stok, harga modal, harga jual, dan margin laba</p>
+              </div>
+            </div>
 
-                  return (
-                    <tr key={item.id} className="hover:bg-neutral-950/40">
-                      <td className="py-3.5 px-4 font-bold text-white">
-                        {item.name}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-bold text-emerald-400 font-mono">
-                          {totalD} Diamonds
-                        </span>
-                        {item.bonusDiamond && (
-                          <span className="text-[10px] text-blue-400 block font-sans">
-                            ({item.diamondAmount} + {item.bonusDiamond} Bonus)
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-neutral-950 text-neutral-400 uppercase text-[10px] tracking-wider border-b border-neutral-800">
+                  <tr>
+                    <th className="py-3 px-4">Paket BB Coin</th>
+                    <th className="py-3 px-4">Diamond Dihasilkan</th>
+                    <th className="py-3 px-4">Status Ketersediaan</th>
+                    <th className="py-3 px-4">Harga Modal</th>
+                    <th className="py-3 px-4">Harga Jual</th>
+                    <th className="py-3 px-4">Margin Laba</th>
+                    <th className="py-3 px-4 text-right">Aksi Kontrol</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800/60 text-neutral-300">
+                  {bbCoinProduct.denominations.map((item) => {
+                    const isItemActive = item.isActive !== false;
+                    const profitRp = item.priceSell - item.priceBase;
+                    const profitPercent = Math.round((profitRp / item.priceSell) * 100);
+                    const totalD = (item.diamondAmount || 0) + (item.bonusDiamond || 0);
+
+                    return (
+                      <tr key={item.id} className={`hover:bg-neutral-950/40 transition-colors ${!isItemActive ? 'bg-red-950/10' : ''}`}>
+                        <td className="py-3.5 px-4 font-bold text-white">
+                          <div className="flex items-center gap-2">
+                            <span>{item.name}</span>
+                            {item.bonusText && (
+                              <span className="text-[10px] text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-900/60">
+                                {item.bonusText}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-emerald-400 font-mono">
+                            {totalD} Diamonds
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-neutral-400">
-                        {formatIDR(item.priceBase)}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-white">
-                        {formatIDR(item.priceSell)}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono">
-                        <span className="text-emerald-400 font-bold block">+{formatIDR(profitRp)}</span>
-                        <span className="text-[10px] text-neutral-500">{profitPercent}% margin</span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => setEditingItem({ productId: bbCoinProduct.id, item: { ...item } })}
-                          className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs font-semibold rounded-lg border border-neutral-700"
-                        >
-                          Edit Harga
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          {item.bonusDiamond && (
+                            <span className="text-[10px] text-blue-400 block font-sans">
+                              ({item.diamondAmount} + {item.bonusDiamond} Bonus)
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {isItemActive ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              <span>Aktif (Tersedia)</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-800 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                              <span>Kosong (Mati)</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-neutral-400">
+                          {formatIDR(item.priceBase)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-white">
+                          {formatIDR(item.priceSell)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono">
+                          <span className="text-emerald-400 font-bold block">+{formatIDR(profitRp)}</span>
+                          <span className="text-[10px] text-neutral-500">{profitPercent}% margin</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleDenomStatus(bbCoinProduct.id, item.id)}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 ${
+                                isItemActive
+                                  ? 'bg-red-950/40 hover:bg-red-600 text-red-300 hover:text-white border-red-800/60'
+                                  : 'bg-emerald-950/40 hover:bg-emerald-600 text-emerald-300 hover:text-white border-emerald-800/60'
+                              }`}
+                              title={isItemActive ? 'Matikan stok paket ini' : 'Aktifkan kembali'}
+                            >
+                              <Power className="w-3 h-3" />
+                              <span>{isItemActive ? 'Matikan' : 'Aktifkan'}</span>
+                            </button>
+                            <button
+                              onClick={() => setEditingItem({ productId: bbCoinProduct.id, item: { ...item } })}
+                              className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs font-semibold rounded-lg border border-neutral-700"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -689,21 +1163,21 @@ export const AdminInventory: React.FC = () => {
         </div>
       )}
 
-      {/* ================= TAB 5: PANDUAN & ALUR LENGKAP MANAJEMEN BISNIS K&F STORE ================= */}
+      {/* ================= TAB 5: PANDUAN & ALUR LENGKAP MANAJEMEN BISNIS ASTER4 STORE ================= */}
       {activeTab === 'guide' && (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* Header Banner */}
           <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-950/60 via-neutral-900 to-red-950/40 border border-blue-900/60 shadow-xl">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-red-600 flex items-center justify-center font-bold text-white shadow-md">
-                K&F
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-red-600 flex items-center justify-center font-black text-white shadow-md">
+                A4
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                Standar Operasional & Alur Manajemen K&F STORE
+                Standar Operasional & Alur Manajemen Aster4 STORE
               </h2>
             </div>
             <p className="text-neutral-300 text-xs sm:text-sm max-w-3xl leading-relaxed">
-              Dokumentasi lengkap tata kelola inventaris, otomatisasi pembayaran, sistem pengiriman data akun instan di layar website, konversi BB Coin ke Diamond, dan strategi margin keuntungan bisnis K&F STORE.
+              Dokumentasi lengkap tata kelola inventaris, otomatisasi pembayaran, sistem pengiriman data akun instan di layar website, konversi BB Coin ke Diamond, dan strategi margin keuntungan bisnis Aster4 STORE.
             </p>
           </div>
 
@@ -779,7 +1253,7 @@ export const AdminInventory: React.FC = () => {
                   <span>1. Validasi Akun Gamers</span>
                 </div>
                 <p className="text-neutral-400 leading-relaxed">
-                  Pembeli memasukkan User ID dan Zone ID. Sistem K&F STORE menjalankan validasi nickname real-time untuk memastikan server dan akun target valid sebelum lanjut ke pembayaran.
+                  Pembeli memasukkan User ID dan Zone ID. Sistem Aster4 STORE menjalankan validasi nickname real-time untuk memastikan server dan akun target valid sebelum lanjut ke pembayaran.
                 </p>
               </div>
 
@@ -789,7 +1263,7 @@ export const AdminInventory: React.FC = () => {
                   <span>2. Rumus Rasio Konversi</span>
                 </div>
                 <p className="text-neutral-400 leading-relaxed">
-                  Rasio resmi: <strong>5 BB Coin = 1 Diamond</strong>. Contoh: 1.000 BB = 200 DM (Rp 10.000), 5.000 BB = 1.000 DM (Rp 25.000), hingga 50.000 BB = 10.000 DM (Rp 250.000). Harga sesuai tabel resmi K&F STORE.
+                  Rasio resmi: <strong>5 BB Coin = 1 Diamond</strong>. Contoh: 1.000 BB = 200 DM (Rp 10.000), 5.000 BB = 1.000 DM (Rp 25.000), hingga 50.000 BB = 10.000 DM (Rp 250.000). Harga sesuai tabel resmi Aster4 STORE.
                 </p>
               </div>
 
@@ -825,7 +1299,7 @@ export const AdminInventory: React.FC = () => {
               <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
                 <span className="font-bold text-white block mb-1 text-xs">A. Generate Invoice</span>
                 <p className="text-neutral-400 text-[11px] leading-relaxed">
-                  Nomor invoice unik dihasilkan (contoh: KF-261020-XXXX) bersama kode bayar QRIS dinamis atau nomor Virtual Account bank (BCA, Mandiri, BRI, BNI).
+                  Nomor invoice unik dihasilkan (contoh: AST-261020-XXXX) bersama kode bayar QRIS dinamis atau nomor Virtual Account bank (BCA, Mandiri, BRI, BNI).
                 </p>
               </div>
 
@@ -846,7 +1320,7 @@ export const AdminInventory: React.FC = () => {
               <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
                 <span className="font-bold text-white block mb-1 text-xs">D. Settlement Dana</span>
                 <p className="text-neutral-400 text-[11px] leading-relaxed">
-                  Dana hasil penjualan langsung masuk ke saldo kas K&F STORE dan siap dicairkan (disbursement) harian ke rekening bank pemilik toko.
+                  Dana hasil penjualan langsung masuk ke saldo kas Aster4 STORE dan siap dicairkan (disbursement) harian ke rekening bank pemilik toko.
                 </p>
               </div>
             </div>
@@ -874,7 +1348,7 @@ export const AdminInventory: React.FC = () => {
                   <tr className="border-b border-neutral-800 text-neutral-400 text-[11px] uppercase">
                     <th className="py-2.5 px-3">Produk / Paket</th>
                     <th className="py-2.5 px-3">Modal Dasar (HPP)</th>
-                    <th className="py-2.5 px-3">Harga Jual K&F</th>
+                    <th className="py-2.5 px-3">Harga Jual Aster4</th>
                     <th className="py-2.5 px-3">Margin Laba Bersih</th>
                     <th className="py-2.5 px-3">Persentase Margin</th>
                     <th className="py-2.5 px-3">Status Pemenuhan</th>
@@ -1087,7 +1561,10 @@ export const AdminInventory: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
-              <h3 className="text-base font-bold text-white">Edit Harga Produk</h3>
+              <div>
+                <h3 className="text-base font-bold text-white">Edit Harga & Status Paket</h3>
+                <p className="text-[11px] text-neutral-400">Atur ketersediaan paket untuk pembeli di toko</p>
+              </div>
               <button onClick={() => setEditingItem(null)} className="text-neutral-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
@@ -1102,6 +1579,45 @@ export const AdminInventory: React.FC = () => {
                   onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, name: e.target.value } })}
                   className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white"
                 />
+              </div>
+
+              {/* Status Ketersediaan (Aktif / Matikan Saat Kosong) */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1.5">
+                  Status Ketersediaan di Website:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem({ ...editingItem, item: { ...editingItem.item, isActive: true } })}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                      editingItem.item.isActive !== false
+                        ? 'bg-emerald-600/25 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/40 shadow-md'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-neutral-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>🟢 Aktif (Bisa Dipesan)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem({ ...editingItem, item: { ...editingItem.item, isActive: false } })}
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                      editingItem.item.isActive === false
+                        ? 'bg-red-600/25 border-red-500 text-red-300 ring-2 ring-red-500/40 shadow-md'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-neutral-700'
+                    }`}
+                  >
+                    <Power className="w-4 h-4 text-red-400" />
+                    <span>🔴 Matikan (Stok Kosong)</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-neutral-400 mt-1">
+                  {editingItem.item.isActive === false
+                    ? '⚠️ Paket ini ditutup. Pembeli tidak akan bisa memilih atau memesan paket ini di website.'
+                    : '✓ Paket ini aktif dan siap dibeli oleh customer.'}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1125,6 +1641,17 @@ export const AdminInventory: React.FC = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-neutral-400 mb-1">Badge / Keterangan Bonus (Opsional):</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Paling Laris / Bonus 50 DM"
+                  value={editingItem.item.bonusText || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, item: { ...editingItem.item, bonusText: e.target.value } })}
+                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white"
+                />
+              </div>
+
               <div className="flex gap-2 pt-3 border-t border-neutral-800">
                 <button
                   type="button"
@@ -1135,12 +1662,95 @@ export const AdminInventory: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-red-600 hover:from-blue-500 hover:to-red-500 text-white font-bold"
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold"
                 >
-                  Simpan
+                  Simpan Perubahan
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: GANTI PIN KEAMANAN ================= */}
+      {showChangePinModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+            <button
+              onClick={() => setShowChangePinModal(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Ganti PIN Brankas</h3>
+                <p className="text-xs text-neutral-400">Atur PIN rahasia baru Anda</p>
+              </div>
+            </div>
+
+            {pinChangeSuccess ? (
+              <div className="p-4 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-center text-xs text-emerald-300 flex flex-col items-center gap-2">
+                <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                <p className="font-bold text-sm text-white">PIN Berhasil Diganti!</p>
+                <p>Gunakan PIN baru ini saat membuka portal admin selanjutnya.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveNewPin} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                    PIN Baru (minimal 4 digit)
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={12}
+                    value={newPinInput}
+                    onChange={(e) => setNewPinInput(e.target.value)}
+                    placeholder="Masukkan PIN baru"
+                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                    Konfirmasi Ulang PIN Baru
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={12}
+                    value={confirmPinInput}
+                    onChange={(e) => setConfirmPinInput(e.target.value)}
+                    placeholder="Ketik ulang PIN baru"
+                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-white font-mono text-sm outline-none"
+                  />
+                </div>
+
+                {pinChangeError && (
+                  <p className="text-xs text-red-400 font-medium">⚠️ {pinChangeError}</p>
+                )}
+
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePinModal(false)}
+                    className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl text-xs"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl text-xs transition-colors shadow-md shadow-amber-500/20"
+                  >
+                    Simpan PIN
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

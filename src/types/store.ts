@@ -66,6 +66,7 @@ export interface ProductCatalog {
   zoneIdPlaceholder?: string;
   idHelpGuide?: string;
   denominations: DenominationItem[];
+  isActive?: boolean; // false jika admin mematikan penjualan produk karena stok kosong
 }
 
 export interface PaymentChannel {

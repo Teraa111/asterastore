@@ -16,7 +16,7 @@ export function calculatePaymentFee(subtotal: number, feePercent: number, feeFix
   return percentFee + feeFixed;
 }
 
-export function generateOrderId(prefix = 'KF'): string {
+export function generateOrderId(prefix = 'A4'): string {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
   const month = String(now.getMonth() + 1).padStart(2, '0');

@@ -69,7 +69,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const copyAllAccountData = () => {
     if (!currentOrder.accountDelivered) return;
     const acc = currentOrder.accountDelivered;
-    const fullText = `*DATA AKUN ADVANCE SERVER - K&F STORE*\nNomor Pesanan: ${currentOrder.id}\nEmail: ${acc.email}\nPassword: ${acc.password}\nServer: ${acc.serverInfo}\nBind: ${acc.bindType}\nPanduan: ${acc.notes || '-'}`;
+    const fullText = `*DATA AKUN ADVANCE SERVER - ASTER4 STORE*\nNomor Pesanan: ${currentOrder.id}\nEmail: ${acc.email}\nPassword: ${acc.password}\nServer: ${acc.serverInfo}\nBind: ${acc.bindType}\nPanduan: ${acc.notes || '-'}`;
     copyToClipboard(fullText, 'all_account');
   };
 
@@ -77,7 +77,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!currentOrder.accountDelivered) return;
     const acc = currentOrder.accountDelivered;
     const content = `=====================================================
-K&F STORE - BUKTI PENGIRIMAN AKUN ADVANCE SERVER MLBB
+ASTER4 STORE - BUKTI PENGIRIMAN AKUN ADVANCE SERVER MLBB
 =====================================================
 Nomor Pesanan : ${currentOrder.id}
 Tanggal       : ${new Date().toLocaleString('id-ID')}
@@ -107,14 +107,14 @@ PANDUAN LOGIN & MASUK SERVER ADVANCE:
 7. Sangat disarankan untuk langsung mengganti password Moonton demi kenyamanan privasi Anda.
 
 Garansi: 100% Anti-Hackback & Dukungan CS 24 Jam.
-Customer Support WhatsApp K&F STORE: 0812-3456-7890
+Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `KF_STORE_Akun_Advance_${currentOrder.id}.txt`;
+    link.download = `Aster4_STORE_Akun_Advance_${currentOrder.id}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -343,7 +343,7 @@ Customer Support WhatsApp K&F STORE: 0812-3456-7890
               <div className="bg-neutral-950 rounded-xl p-4 border border-neutral-800 text-xs space-y-2">
                 <div className="flex justify-between">
                   <span className="text-neutral-400">Merchant Resmi:</span>
-                  <span className="font-bold text-white">K&F STORE INDONESIA</span>
+                  <span className="font-bold text-white">Aster4 STORE INDONESIA</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-400">Total Pembayaran:</span>
@@ -359,11 +359,11 @@ Customer Support WhatsApp K&F STORE: 0812-3456-7890
               <div className="flex gap-2">
                 <a
                   href={`https://wa.me/62${currentOrder.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(
-                    `*STRUK RESMI K&F STORE*\nNomor Pesanan: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nItem: ${currentOrder.itemName}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nStatus: SUKSES\n${
+                    `*STRUK RESMI ASTER4 STORE*\nNomor Pesanan: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nItem: ${currentOrder.itemName}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nStatus: SUKSES\n${
                       isAccount && currentOrder.accountDelivered
                         ? `Email Akun: ${currentOrder.accountDelivered.email}\nPassword: ${currentOrder.accountDelivered.password}\nServer: ${currentOrder.accountDelivered.serverInfo}`
                         : `User ID: ${currentOrder.userId || '-'}\nSN: ${currentOrder.serialNumberDelivery || '-'}\nKetentuan: Diamond masuk jam 20:00 WIB di Mailbox (Live streaming aktif & Min. Rank Master)`
-                    }\n\nTerima kasih telah berbelanja di K&F STORE!`
+                    }\n\nTerima kasih telah berbelanja di Aster4 STORE!`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -420,7 +420,7 @@ Customer Support WhatsApp K&F STORE: 0812-3456-7890
                   <div className="p-3 bg-white rounded-2xl shadow-lg border border-neutral-700 max-w-[210px] w-full aspect-square flex flex-col items-center justify-between relative">
                     <div className="w-full h-full bg-white flex flex-col items-center justify-between p-1">
                       <div className="w-full text-center border-b border-black pb-1 mb-1">
-                        <span className="text-[10px] font-black tracking-widest text-black">QRIS K&F STORE</span>
+                        <span className="text-[10px] font-black tracking-widest text-black">QRIS ASTER4 STORE</span>
                       </div>
                       <div className="w-36 h-36 bg-black p-1 rounded grid grid-cols-7 gap-1">
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
@@ -431,8 +431,8 @@ Customer Support WhatsApp K&F STORE: 0812-3456-7890
                           <div className="w-4 h-4 bg-black rounded-xs" />
                         </div>
                         <div className="bg-white rounded-sm col-span-3" />
-                        <div className="bg-gradient-to-r from-blue-600 to-red-600 col-span-1 flex items-center justify-center font-bold text-[8px] text-white">
-                          K&F
+                        <div className="bg-gradient-to-r from-blue-600 to-red-600 col-span-1 flex items-center justify-center font-black text-[9px] text-white">
+                          A4
                         </div>
                         <div className="bg-white rounded-sm col-span-2" />
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
@@ -441,7 +441,7 @@ Customer Support WhatsApp K&F STORE: 0812-3456-7890
                         <div className="bg-white rounded-sm col-span-5" />
                       </div>
                       <div className="w-full text-center pt-1 text-[8px] text-black font-mono font-bold">
-                        NMID: ID99281726481 (K&F STORE)
+                        NMID: ID99281726481 (ASTER4 STORE)
                       </div>
                     </div>
                   </div>

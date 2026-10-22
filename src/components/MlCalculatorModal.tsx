@@ -51,7 +51,7 @@ export const MlCalculatorModal: React.FC<MlCalculatorModalProps> = ({
             <Calculator className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white tracking-tight">Kalkulator MLBB Gamers - K&F STORE</h3>
+            <h3 className="text-lg font-bold text-white tracking-tight">Kalkulator MLBB Gamers - Aster4 STORE</h3>
             <p className="text-xs text-neutral-400">Hitung target Win Rate & Magic Wheel akurat</p>
           </div>
         </div>
@@ -168,7 +168,7 @@ export const MlCalculatorModal: React.FC<MlCalculatorModalProps> = ({
                 <span className="font-mono font-bold text-blue-400 text-sm">{formatNumber(estimatedDiamonds)} Diamonds</span>
               </div>
               <p className="text-[10px] text-neutral-400 pt-2 border-t border-neutral-800">
-                *Dihitung berdasarkan spin 5x (270 Diamond). Rekomendasi: Beli Weekly Diamond Pass di K&F STORE untuk hemat hingga 60%.
+                *Dihitung berdasarkan spin 5x (270 Diamond). Rekomendasi: Beli Weekly Diamond Pass di Aster4 STORE untuk hemat hingga 60%.
               </p>
             </div>
 
@@ -179,7 +179,7 @@ export const MlCalculatorModal: React.FC<MlCalculatorModalProps> = ({
               }}
               className="w-full py-3 bg-gradient-to-r from-blue-600 to-red-600 hover:from-blue-500 hover:to-red-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-600/30"
             >
-              <span>Top Up Diamond MLBB di K&F STORE</span>
+              <span>Top Up Diamond MLBB di Aster4 STORE</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -21,6 +21,8 @@ import {
   Clock,
   Mail,
   Radio,
+  Power,
+  Ban,
 } from 'lucide-react';
 
 interface TopUpOrderEngineProps {
@@ -45,10 +47,17 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
   const [showIdHelp, setShowIdHelp] = useState(false);
   const [isDisclaimerAgreed, setIsDisclaimerAgreed] = useState(false);
 
+  const isProductActive = product.isActive !== false;
+
   // Selected Denomination / Package
-  const [selectedItem, setSelectedItem] = useState<DenominationItem | null>(
-    product.denominations.find((d) => d.isFlashSale) || product.denominations[0] || null
-  );
+  const [selectedItem, setSelectedItem] = useState<DenominationItem | null>(() => {
+    const available = product.denominations.filter((d) => {
+      const isAct = d.isActive !== false;
+      const readyStock = d.accountPool ? d.accountPool.filter((a) => !a.isSold).length : d.stockCount;
+      return isAct && (d.stockType !== 'account_pool' || readyStock > 0);
+    });
+    return available.find((d) => d.isFlashSale) || available[0] || null;
+  });
 
   // Selected Payment
   const [selectedPayment, setSelectedPayment] = useState<PaymentChannel>(PAYMENT_CHANNELS[0]);
@@ -150,6 +159,12 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
   const handleInitiateOrder = () => {
     setFormError('');
 
+    if (!isProductActive) {
+      setFormError('⚠️ Produk ini sedang dinonaktifkan oleh Admin karena stok kosong. Pemesanan tidak dapat diproses.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     if (!isAccountProduct) {
       if (!userId.trim()) {
         setFormError('Mohon masukkan User ID MLBB Anda untuk top up BB Coin.');
@@ -169,6 +184,13 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
 
     if (!selectedItem) {
       setFormError('Silakan pilih salah satu paket atau nominal.');
+      return;
+    }
+
+    const isItemActive = selectedItem.isActive !== false;
+    const readyStock = selectedItem.accountPool ? selectedItem.accountPool.filter(a => !a.isSold).length : selectedItem.stockCount;
+    if (!isItemActive || (selectedItem.stockType === 'account_pool' && readyStock <= 0)) {
+      setFormError(`⚠️ Paket "${selectedItem.name}" sedang kosong atau dinonaktifkan oleh Admin. Silakan pilih paket lain.`);
       return;
     }
 
@@ -307,6 +329,28 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Alert Banner if Admin turned off product due to out of stock */}
+      {!isProductActive && (
+        <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-red-950/80 border-2 border-red-600 text-white flex items-start gap-3.5 shadow-xl animate-in fade-in">
+          <div className="w-10 h-10 rounded-xl bg-red-600/30 text-red-400 flex items-center justify-center shrink-0 border border-red-500/50">
+            <Power className="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="font-extrabold text-sm sm:text-base text-red-200">
+                PRODUK SEDANG DINONAKTIFKAN KARENA STOK KOSONG
+              </h4>
+              <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded font-black tracking-wider uppercase">
+                TUTUP SEMENTARA
+              </span>
+            </div>
+            <p className="text-xs text-neutral-300 mt-1.5 leading-relaxed">
+              Admin saat ini sedang mengisi ulang stok akun / diamond. Pemesanan untuk produk ini ditutup sementara agar pesanan tidak tertunda. Silakan hubungi Admin via WhatsApp untuk info restock.
+            </p>
+          </div>
+        </div>
+      )}
 
       {formError && (
         <div className="mb-6 p-4 rounded-xl bg-red-950/60 border border-red-800/80 text-red-200 text-sm flex items-center justify-between">
@@ -524,44 +568,78 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
             /* ACCOUNT SPECIFICATION CARDS */
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {product.denominations.map((item) => {
-                const isSelected = selectedItem?.id === item.id;
+                const isItemActive = item.isActive !== false;
+                const unsold = item.accountPool ? item.accountPool.filter((a) => !a.isSold).length : item.stockCount;
+                const isOutOfStock = !isItemActive || unsold <= 0;
+                const isSelected = selectedItem?.id === item.id && !isOutOfStock;
+
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => {
+                      if (isOutOfStock) {
+                        setFormError(`Paket "${item.name}" saat ini sedang kosong atau dinonaktifkan oleh Admin.`);
+                        return;
+                      }
+                      setFormError('');
+                      setSelectedItem(item);
+                    }}
                     className={`relative text-left p-4 rounded-xl border transition-all flex flex-col justify-between ${
-                      isSelected
+                      isOutOfStock
+                        ? 'bg-neutral-950/40 border-dashed border-red-900/60 opacity-60 cursor-not-allowed text-neutral-400'
+                        : isSelected
                         ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500 text-white shadow-xl shadow-blue-600/20'
                         : 'bg-neutral-950/70 border-neutral-800 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-950'
                     }`}
                   >
                     <div>
-                      {item.isFlashSale && (
-                        <span className="text-[10px] font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-800 uppercase tracking-wider inline-block mb-2">
-                          POPULER
-                        </span>
-                      )}
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        {isOutOfStock ? (
+                          <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded shadow flex items-center gap-1 uppercase tracking-wider">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                            <span>STOK KOSONG</span>
+                          </span>
+                        ) : item.isFlashSale ? (
+                          <span className="text-[10px] font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-800 uppercase tracking-wider inline-block">
+                            POPULER
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-900 uppercase tracking-wider inline-block">
+                            TERSEDIA
+                          </span>
+                        )}
 
-                      <h3 className="text-sm font-extrabold text-white">
+                        {item.bonusText && !isOutOfStock && (
+                          <span className="text-[10px] font-semibold text-amber-400 bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-900/50">
+                            {item.bonusText}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className={`text-sm font-extrabold ${isOutOfStock ? 'text-neutral-400' : 'text-white'}`}>
                         {item.name}
                       </h3>
 
                       {item.accountSpec && (
-                        <div className="mt-3 space-y-1.5 text-[11px] text-neutral-300 bg-neutral-900/60 p-2.5 rounded-lg border border-neutral-800/80">
+                        <div className={`mt-3 space-y-1.5 text-[11px] p-2.5 rounded-lg border ${
+                          isOutOfStock
+                            ? 'bg-neutral-950/60 border-neutral-800/50 text-neutral-500'
+                            : 'bg-neutral-900/60 border-neutral-800/80 text-neutral-300'
+                        }`}>
                           <div className="flex justify-between">
-                            <span className="text-neutral-400">Server:</span>
-                            <span className="font-semibold text-blue-400">{item.accountSpec.server}</span>
+                            <span className="text-neutral-500">Server:</span>
+                            <span className={`font-semibold ${isOutOfStock ? 'text-neutral-400' : 'text-blue-400'}`}>{item.accountSpec.server}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-neutral-400">Level:</span>
-                            <span className="font-semibold text-white">{item.accountSpec.level}</span>
+                            <span className="text-neutral-500">Level:</span>
+                            <span className={`font-semibold ${isOutOfStock ? 'text-neutral-400' : 'text-white'}`}>{item.accountSpec.level}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-neutral-400">BP:</span>
-                            <span className="font-mono text-emerald-400">{item.accountSpec.battlePoints}</span>
+                            <span className="text-neutral-500">BP:</span>
+                            <span className={`font-mono ${isOutOfStock ? 'text-neutral-400' : 'text-emerald-400'}`}>{item.accountSpec.battlePoints}</span>
                           </div>
-                          <div className="pt-1 border-t border-neutral-800 text-[10px] text-neutral-400">
+                          <div className="pt-1 border-t border-neutral-800 text-[10px] text-neutral-500">
                             {item.accountSpec.bindStatus}
                           </div>
                         </div>
@@ -575,13 +653,17 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                             {formatIDR(item.strikePrice)}
                           </span>
                         )}
-                        <span className="text-base font-extrabold text-blue-400 font-mono tabular-nums">
+                        <span className={`text-base font-extrabold font-mono tabular-nums ${isOutOfStock ? 'text-neutral-400 line-through' : 'text-blue-400'}`}>
                           {formatIDR(item.priceSell)}
                         </span>
                       </div>
 
-                      <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900">
-                        {item.stockCount} Akun Ready
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                        isOutOfStock
+                          ? 'text-red-400 bg-red-950/80 border-red-800'
+                          : 'text-emerald-400 bg-emerald-950/60 border-emerald-900'
+                      }`}>
+                        {isOutOfStock ? 'Stok Habis' : `${unsold} Akun Ready`}
                       </span>
                     </div>
                   </button>
@@ -603,33 +685,52 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {product.denominations.map((item) => {
-                  const isSelected = selectedItem?.id === item.id;
+                  const isItemActive = item.isActive !== false;
+                  const isOutOfStock = !isItemActive;
+                  const isSelected = selectedItem?.id === item.id && !isOutOfStock;
 
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => {
+                        if (isOutOfStock) {
+                          setFormError(`Nominal "${item.name}" saat ini sedang dinonaktifkan oleh Admin karena stok kosong.`);
+                          return;
+                        }
+                        setFormError('');
+                        setSelectedItem(item);
+                      }}
                       className={`relative text-left p-4 rounded-xl transition-all flex flex-col justify-between ${
-                        isSelected
+                        isOutOfStock
+                          ? 'bg-[#10121a]/60 border-2 border-dashed border-red-900/60 opacity-60 cursor-not-allowed text-neutral-400'
+                          : isSelected
                           ? 'bg-[#151928] border-2 border-red-500 shadow-[0_0_22px_rgba(239,68,68,0.55)] ring-1 ring-red-500'
                           : 'bg-[#121520] border border-neutral-800/90 text-neutral-300 hover:border-neutral-700 hover:bg-[#161a28]'
                       }`}
                     >
                       <div>
-                        {/* Title: 1000 BB (200 DM) */}
-                        <h4 className="text-sm sm:text-base font-black text-white tracking-tight">
-                          {item.name}
-                        </h4>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          {/* Title: 1000 BB (200 DM) */}
+                          <h4 className={`text-sm sm:text-base font-black tracking-tight ${isOutOfStock ? 'text-neutral-400' : 'text-white'}`}>
+                            {item.name}
+                          </h4>
+
+                          {isOutOfStock && (
+                            <span className="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded shadow uppercase">
+                              STOK KOSONG
+                            </span>
+                          )}
+                        </div>
 
                         {/* Price Row with Cyan Diamond Gem */}
                         <div className="flex items-center gap-2 mt-2.5">
-                          <svg className="w-5 h-5 text-cyan-400 fill-cyan-400 shrink-0 drop-shadow-[0_0_8px_rgba(34,211,238,0.65)]" viewBox="0 0 24 24">
+                          <svg className={`w-5 h-5 shrink-0 ${isOutOfStock ? 'text-neutral-500 fill-neutral-500' : 'text-cyan-400 fill-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.65)]'}`} viewBox="0 0 24 24">
                             <polygon points="6,2 18,2 22,8 12,22 2,8" />
                           </svg>
 
                           <div className="flex items-baseline flex-wrap">
-                            <span className="text-base font-extrabold text-white font-mono tabular-nums">
+                            <span className={`text-base font-extrabold font-mono tabular-nums ${isOutOfStock ? 'text-neutral-400 line-through' : 'text-white'}`}>
                               {formatIDR(item.priceSell)}
                             </span>
                             {item.strikePrice && (
@@ -643,12 +744,18 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
 
                       {/* Divider line and bottom badges matching the screenshot */}
                       <div className="mt-4 pt-3 border-t border-neutral-800/80 flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-white text-neutral-900 text-[10px] font-bold shadow-sm">
-                          <Zap className="w-3 h-3 text-emerald-600 fill-emerald-600" />
-                          <span>Pengiriman INSTAN</span>
-                        </span>
+                        {isOutOfStock ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-400">
+                            <span>🚫 Stok Belum Tersedia</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-white text-neutral-900 text-[10px] font-bold shadow-sm">
+                            <Zap className="w-3 h-3 text-emerald-600 fill-emerald-600" />
+                            <span>Pengiriman INSTAN</span>
+                          </span>
+                        )}
 
-                        {item.bonusText && (
+                        {item.bonusText && !isOutOfStock && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-white text-neutral-900 text-[10px] font-black shadow-sm">
                             <span className="text-orange-500">🔥</span>
                             <span>{item.bonusText}</span>
@@ -921,16 +1028,33 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
           </div>
 
           <div className="mt-6">
-            <button
-              type="button"
-              onClick={handleInitiateOrder}
-              className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-red-600 hover:from-blue-500 hover:to-red-500 text-white font-extrabold text-base rounded-xl shadow-lg shadow-blue-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
-            >
-              <Zap className="w-5 h-5 fill-white text-white" />
-              <span>Beli Sekarang — {formatIDR(totalAmount)}</span>
-            </button>
+            {isProductActive && selectedItem && selectedItem.isActive !== false && (selectedItem.stockType !== 'account_pool' || (selectedItem.accountPool ? selectedItem.accountPool.filter((a) => !a.isSold).length : selectedItem.stockCount) > 0) ? (
+              <button
+                type="button"
+                onClick={handleInitiateOrder}
+                className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-red-600 hover:from-blue-500 hover:to-red-500 text-white font-extrabold text-base rounded-xl shadow-lg shadow-blue-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
+              >
+                <Zap className="w-5 h-5 fill-white text-white" />
+                <span>Beli Sekarang — {formatIDR(totalAmount)}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full py-4 bg-neutral-800/90 border border-red-900/40 text-neutral-400 font-bold text-sm sm:text-base rounded-xl cursor-not-allowed flex items-center justify-center gap-2.5 shadow-inner"
+              >
+                <Ban className="w-5 h-5 text-red-500 shrink-0" />
+                <span>
+                  {!isProductActive
+                    ? 'Produk Dinonaktifkan oleh Admin (Stok Kosong)'
+                    : !selectedItem
+                    ? 'Pilih Paket yang Masih Ready'
+                    : 'Paket Sedang Habis (Silakan Pilih Paket Lain)'}
+                </span>
+              </button>
+            )}
             <p className="text-center text-[11px] text-neutral-400 mt-2.5">
-              Dengan mengklik Beli Sekarang, Anda menyetujui Syarat & Ketentuan transaksi otomatis K&F STORE.
+              Dengan mengklik Beli Sekarang, Anda menyetujui Syarat & Ketentuan transaksi otomatis Aster4 STORE.
             </p>
           </div>
         </section>

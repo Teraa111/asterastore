@@ -251,3 +251,32 @@ export function simulateCheckNickname(userId: string, zoneId?: string): string {
   }
   return picked;
 }
+
+// ==========================================
+// ADMIN SECURITY & PIN MANAGEMENT
+// ==========================================
+const ADMIN_PIN_KEY = 'storeadv_admin_pin_v1';
+export const DEFAULT_ADMIN_PIN = '8888';
+
+export function getAdminPin(): string {
+  try {
+    return localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
+  } catch {
+    return DEFAULT_ADMIN_PIN;
+  }
+}
+
+export function setAdminPin(newPin: string): boolean {
+  try {
+    if (!newPin || newPin.trim().length < 4) return false;
+    localStorage.setItem(ADMIN_PIN_KEY, newPin.trim());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function verifyAdminPin(inputPin: string): boolean {
+  const currentPin = getAdminPin();
+  return inputPin.trim() === currentPin.trim();
+}
