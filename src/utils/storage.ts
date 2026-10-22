@@ -3,7 +3,7 @@ import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES } from '../data/m
 import { generateSerialNumber } from './currency';
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'storeadv_products_v3',
+  PRODUCTS: 'storeadv_products_v4',
   ORDERS: 'storeadv_orders_v3',
   PROMOS: 'storeadv_promos_v3',
 };
@@ -12,6 +12,31 @@ export function loadProducts(): ProductCatalog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     if (!raw) {
+      // Migrate custom account stock from v3 if present
+      const oldRaw = localStorage.getItem('storeadv_products_v3');
+      if (oldRaw) {
+        try {
+          const oldProducts: ProductCatalog[] = JSON.parse(oldRaw);
+          const migrated = INITIAL_PRODUCTS.map((initProd) => {
+            const oldMatch = oldProducts.find((p) => p.id === initProd.id);
+            if (oldMatch && initProd.type === 'advance_account') {
+              return {
+                ...initProd,
+                ...oldMatch,
+                denominations: initProd.denominations.map((initD) => {
+                  const oldD = oldMatch.denominations.find((d) => d.id === initD.id);
+                  return oldD ? { ...initD, ...oldD } : initD;
+                }),
+              };
+            }
+            return initProd;
+          });
+          saveProducts(migrated);
+          return migrated;
+        } catch {
+          // fallback
+        }
+      }
       saveProducts(INITIAL_PRODUCTS);
       return INITIAL_PRODUCTS;
     }

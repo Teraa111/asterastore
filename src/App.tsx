@@ -167,10 +167,10 @@ export default function App() {
                   </div>
                   <div>
                     <h2 className="font-extrabold text-white text-base tracking-tight">
-                      BB Coin Auto-Konversi 1:1 Diamond
+                      BB Coin Auto-Konversi 5:1 Diamond
                     </h2>
                     <p className="text-xs text-neutral-400">
-                      Jalur resmi Bang Bang Coin Moonton dengan bonus ekstra langsung disuntikkan ke akun game Anda.
+                      Jalur resmi Bang Bang Coin Moonton dengan auto-konversi rasio 5:1 (5 BB Coin = 1 Diamond) langsung masuk ke akun Anda.
                     </p>
                   </div>
                 </div>

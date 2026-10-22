@@ -27,8 +27,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
                 <Coins className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-semibold text-white text-sm">BB Coin Auto-Konversi</p>
-                <p className="text-neutral-500 mt-0.5">Top up Diamond via BB Coin langsung masuk ke akun MLBB secara resmi 1-3 detik.</p>
+                <p className="font-semibold text-white text-sm">BB Coin Auto-Konversi 5:1</p>
+                <p className="text-neutral-500 mt-0.5">Top up Diamond via BB Coin rasio 5:1 langsung masuk ke akun MLBB secara resmi 1-3 detik.</p>
               </div>
             </div>
 

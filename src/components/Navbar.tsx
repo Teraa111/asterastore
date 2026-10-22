@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               Aster4 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-500">STORE</span>
             </span>
             <span className="text-[10px] text-neutral-400 tracking-wider font-semibold uppercase -mt-1 hidden sm:block">
-              Advance Server & BB Coin
+              Advance Server & BB Coin Auto Konversi 5:1
             </span>
           </div>
         </button>
@@ -65,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="whitespace-nowrap transition-colors hover:text-white flex items-center gap-1.5 text-neutral-300 hover:text-red-400"
           >
             <Coins className="w-4 h-4 text-red-400" />
-            <span>Top Up BB Coin</span>
+            <span>BB Coin Auto Konversi 5:1</span>
           </button>
 
           <button

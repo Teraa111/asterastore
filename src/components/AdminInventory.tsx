@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ProductCatalog, Order, PromoCode, DenominationItem, AccountCredential } from '../types/store';
 import { loadProducts, saveProducts, loadOrders, saveOrders, loadPromos, savePromos, calculateMetrics, triggerAutomaticFulfillment, getAdminPin, setAdminPin } from '../utils/storage';
 import { formatIDR, formatNumber } from '../utils/currency';
+import { INITIAL_PRODUCTS, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import {
   TrendingUp,
   Package,
@@ -36,6 +37,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
+  Palette,
+  ImageIcon,
+  Sparkles,
 } from 'lucide-react';
 
 interface AdminInventoryProps {
@@ -76,6 +80,9 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
   } | null>(null);
   const [showEditAccPassword, setShowEditAccPassword] = useState(false);
   const [copiedAccId, setCopiedAccId] = useState<string | null>(null);
+
+  // Edit Product Display states (Judul, Subjudul, Badge, Gambar Cover, Deskripsi Menu Utama)
+  const [editingProductDisplay, setEditingProductDisplay] = useState<ProductCatalog | null>(null);
 
   // PIN Management states
   const [showChangePinModal, setShowChangePinModal] = useState(false);
@@ -311,6 +318,72 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
     navigator.clipboard.writeText(text);
     setCopiedAccId(id);
     setTimeout(() => setCopiedAccId(null), 2000);
+  };
+
+  // Open Edit Product Display Modal (Ganti judul, subjudul, badge, gambar cover, deskripsi)
+  const handleOpenEditProductDisplay = (prod: ProductCatalog) => {
+    setEditingProductDisplay({ ...prod });
+  };
+
+  // Save Product Display Customization
+  const handleSaveProductDisplay = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProductDisplay) return;
+
+    if (!editingProductDisplay.title.trim()) {
+      showToast('Judul produk tidak boleh kosong!', 'warning');
+      return;
+    }
+
+    const updated = products.map((p) => {
+      if (p.id === editingProductDisplay.id) {
+        return {
+          ...p,
+          title: editingProductDisplay.title.trim(),
+          subtitle: editingProductDisplay.subtitle.trim(),
+          badge: editingProductDisplay.badge.trim(),
+          publisher: editingProductDisplay.publisher.trim(),
+          coverImage: editingProductDisplay.coverImage.trim() || p.coverImage,
+          shortDesc: editingProductDisplay.shortDesc.trim(),
+        };
+      }
+      return p;
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+    setEditingProductDisplay(null);
+    showToast(`✅ Display produk "${editingProductDisplay.title}" berhasil disimpan!`, 'success');
+  };
+
+  // Reset Product Display to Default
+  const handleResetProductDisplay = (productId: string) => {
+    const defaultProduct = INITIAL_PRODUCTS.find((p) => p.id === productId);
+    if (!defaultProduct) return;
+
+    if (!window.confirm(`Kembalikan tampilan display "${defaultProduct.title}" ke pengaturan default awal?`)) {
+      return;
+    }
+
+    const updated = products.map((p) => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          title: defaultProduct.title,
+          subtitle: defaultProduct.subtitle,
+          badge: defaultProduct.badge,
+          publisher: defaultProduct.publisher,
+          coverImage: defaultProduct.coverImage,
+          shortDesc: defaultProduct.shortDesc,
+        };
+      }
+      return p;
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+    setEditingProductDisplay(null);
+    showToast(`Tampilan produk telah dikembalikan ke default bawaan.`, 'success');
   };
 
   // Save Item Price Edit
@@ -809,6 +882,15 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="hidden sm:inline">Aktifkan Semua</span>
                 </button>
+
+                <button
+                  onClick={() => handleOpenEditProductDisplay(accountProduct)}
+                  className="px-3.5 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+                  title="Ubah Judul, Subtitle, Badge Promo & Banner Gambar di Menu Utama"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span>Edit Display Produk</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1091,6 +1173,15 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                 >
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Aktifkan Semua Nominal</span>
+                </button>
+
+                <button
+                  onClick={() => handleOpenEditProductDisplay(bbCoinProduct)}
+                  className="px-3.5 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+                  title="Ubah Judul, Subtitle, Badge Promo & Banner Gambar di Menu Utama"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span>Edit Display Produk</span>
                 </button>
               </div>
             </div>
@@ -2268,6 +2359,265 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   >
                     <Check className="w-4 h-4" />
                     <span>Simpan Perubahan</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT DISPLAY & TAMPILAN PRODUK ================= */}
+      {editingProductDisplay && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative my-auto animate-in fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-600/30">
+                  <Palette className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Kustomisasi Display Produk: {editingProductDisplay.title}
+                  </h3>
+                  <p className="text-xs text-neutral-400">
+                    Atur nama, subjudul, badge promo, banner gambar, dan deskripsi di menu utama toko
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingProductDisplay(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-neutral-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProductDisplay} className="space-y-4 text-xs">
+              {/* LIVE PREVIEW OF GAMECARD */}
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800">
+                <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-2.5 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Preview Live Tampilan Kartu di Menu Utama Toko:</span>
+                </span>
+                <div className="max-w-md mx-auto rounded-2xl border border-neutral-800 bg-neutral-900 overflow-hidden shadow-lg">
+                  <div className="relative aspect-video w-full overflow-hidden bg-neutral-950">
+                    <img
+                      src={editingProductDisplay.coverImage || MLBB_COVER_IMG}
+                      alt={editingProductDisplay.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = MLBB_COVER_IMG;
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent" />
+                    {editingProductDisplay.badge && (
+                      <span className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wide bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md">
+                        {editingProductDisplay.badge}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <span className="text-[11px] text-blue-400 font-bold block mb-1">
+                      {editingProductDisplay.publisher || 'Moonton Games'}
+                    </span>
+                    <h4 className="text-base font-extrabold text-white leading-tight mb-1">
+                      {editingProductDisplay.title || 'Judul Produk'}
+                    </h4>
+                    <p className="text-xs text-neutral-400 line-clamp-1 mb-3">
+                      {editingProductDisplay.subtitle || 'Subjudul produk...'}
+                    </p>
+                    <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-xs">
+                      <span className="text-neutral-400 text-[11px]">Mulai dari:</span>
+                      <strong className="text-blue-400 font-mono font-bold">
+                        {formatIDR(editingProductDisplay.denominations[0]?.priceSell || 10000)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* INPUT FIELDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Title */}
+                <div className="sm:col-span-2">
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Judul Produk (Tampil di Menu Utama):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProductDisplay.title}
+                    onChange={(e) =>
+                      setEditingProductDisplay({
+                        ...editingProductDisplay,
+                        title: e.target.value,
+                      })
+                    }
+                    placeholder="Contoh: Top Up Advance Server (BB Coin Auto Konversi 5:1)"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Subtitle */}
+                <div className="sm:col-span-2">
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Subjudul / Slogan Produk:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingProductDisplay.subtitle}
+                    onChange={(e) =>
+                      setEditingProductDisplay({
+                        ...editingProductDisplay,
+                        subtitle: e.target.value,
+                      })
+                    }
+                    placeholder="Contoh: Konversi BB Coin Moonton Rasio 5:1 Menjadi Diamond..."
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Badge Tag */}
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Badge Tag Promo (Pojok Gambar):
+                  </label>
+                  <input
+                    type="text"
+                    value={editingProductDisplay.badge}
+                    onChange={(e) =>
+                      setEditingProductDisplay({
+                        ...editingProductDisplay,
+                        badge: e.target.value,
+                      })
+                    }
+                    placeholder="Contoh: Auto Konversi 5:1 / Kirim Instan / DISKON 50%"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Publisher */}
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Publisher / Kategori Brand:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingProductDisplay.publisher}
+                    onChange={(e) =>
+                      setEditingProductDisplay({
+                        ...editingProductDisplay,
+                        publisher: e.target.value,
+                      })
+                    }
+                    placeholder="Contoh: Moonton Bang Bang Coin / Moonton Games"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Cover Image URL & Presets */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-neutral-300 font-semibold">
+                      URL Gambar Cover / Banner:
+                    </label>
+                    <span className="text-[10px] text-neutral-400">
+                      Bisa pakai link gambar eksternal atau pilih preset
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={editingProductDisplay.coverImage}
+                    onChange={(e) =>
+                      setEditingProductDisplay({
+                        ...editingProductDisplay,
+                        coverImage: e.target.value,
+                      })
+                    }
+                    placeholder="https://... atau pilih tombol preset di bawah"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono text-[11px] focus:ring-2 focus:ring-blue-500 focus:outline-none mb-2"
+                  />
+
+                  {/* Preset Image Chooser */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] text-neutral-400 font-semibold">Pilih Preset Cepat:</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingProductDisplay({
+                          ...editingProductDisplay,
+                          coverImage: MLBB_COVER_IMG,
+                        })
+                      }
+                      className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] flex items-center gap-1 border border-neutral-700"
+                    >
+                      <ImageIcon className="w-3 h-3 text-blue-400" />
+                      <span>MLBB Cover Utama</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingProductDisplay({
+                          ...editingProductDisplay,
+                          coverImage: HERO_PROMO_IMG,
+                        })
+                      }
+                      className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] flex items-center gap-1 border border-neutral-700"
+                    >
+                      <ImageIcon className="w-3 h-3 text-red-400" />
+                      <span>Hero Gaming Promo</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Short Description */}
+                <div className="sm:col-span-2">
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Deskripsi Singkat (Tampil di Halaman Pesanan):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingProductDisplay.shortDesc}
+                    onChange={(e) =>
+                      setEditingProductDisplay({
+                        ...editingProductDisplay,
+                        shortDesc: e.target.value,
+                      })
+                    }
+                    placeholder="Penjelasan produk untuk pembeli..."
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-neutral-800 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleResetProductDisplay(editingProductDisplay.id)}
+                  className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-xs font-semibold transition-colors"
+                >
+                  Reset Default
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProductDisplay(null)}
+                    className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold transition-colors"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Simpan Display Produk</span>
                   </button>
                 </div>
               </div>

@@ -41,7 +41,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         </h1>
 
         <p className="mt-3 text-sm sm:text-base text-neutral-300 max-w-xl leading-relaxed">
-          Platform resmi <strong>Aster4 STORE</strong> untuk <strong>Akun Mobile Legends Advance Server</strong> (kredensial login email/password langsung muncul di website setelah bayar) dan <strong>Top Up Diamond hemat via BB Coin</strong> auto-konversi instan.
+          Platform resmi <strong>Aster4 STORE</strong> untuk <strong>Akun Mobile Legends Advance Server</strong> (kredensial login email/password langsung muncul di website setelah bayar) dan <strong>Top Up Diamond hemat via BB Coin</strong> auto-konversi 5:1 instan.
         </p>
 
         {/* Direct Product Selector CTAs */}
@@ -60,7 +60,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             className="flex-1 px-5 py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white border border-red-500/30 rounded-xl text-sm font-bold transition-all shadow-lg shadow-red-600/30 flex items-center justify-center gap-2.5"
           >
             <Coins className="w-4 h-4 text-white" />
-            <span>Top Up via BB Coin</span>
+            <span>Top Up BB Coin (Auto Konversi 5:1)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -74,7 +74,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           <span className="text-neutral-700">·</span>
           <div className="flex items-center gap-1.5 text-emerald-400">
             <Zap className="w-3.5 h-3.5" />
-            <span>BB Coin Auto-Konversi 1-3 Detik</span>
+            <span>BB Coin Auto-Konversi 5:1 (1-3 Detik)</span>
           </div>
           <span className="text-neutral-700">·</span>
           <div className="flex items-center gap-1.5 text-red-400">

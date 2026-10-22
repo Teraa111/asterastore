@@ -318,7 +318,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
             ) : (
               <span className="flex items-center gap-1.5 text-blue-400 font-bold">
                 <Coins className="w-3.5 h-3.5" />
-                <span>Auto-Konversi 1:1 Diamond Resmi</span>
+                <span>Auto-Konversi 5:1 Diamond Resmi</span>
               </span>
             )}
             <span>·</span>
