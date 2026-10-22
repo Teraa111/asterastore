@@ -38,14 +38,19 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
 }) => {
   const isAccountProduct = product.type === 'advance_account';
 
-  // Step 1 for BB Coin: Account Data
+  // Step 1 for BB Coin: Account Data (Input manual tanpa cek otomatis)
   const [userId, setUserId] = useState('');
   const [zoneId, setZoneId] = useState('');
-  const [userNickname, setUserNickname] = useState('');
-  const [isCheckingNickname, setIsCheckingNickname] = useState(false);
-  const [nicknameError, setNicknameError] = useState('');
   const [showIdHelp, setShowIdHelp] = useState(false);
   const [isDisclaimerAgreed, setIsDisclaimerAgreed] = useState(false);
+
+  // Jam Operasional: Buka s.d 22:00 WIB (10 malam tutup)
+  const isStoreOpen = useMemo(() => {
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const wibHour = (utcHours + 7) % 24;
+    return wibHour >= 9 && wibHour < 22;
+  }, []);
 
   const isProductActive = product.isActive !== false;
 
@@ -75,26 +80,6 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
   // Modal confirmation
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [formError, setFormError] = useState('');
-
-  // Check Nickname for BB Coin
-  const handleCheckNickname = () => {
-    if (!userId.trim()) {
-      setNicknameError('Silakan masukkan User ID terlebih dahulu.');
-      return;
-    }
-    if (!zoneId.trim()) {
-      setNicknameError('Silakan masukkan Zone ID / Server.');
-      return;
-    }
-
-    setNicknameError('');
-    setIsCheckingNickname(true);
-    setTimeout(() => {
-      setIsCheckingNickname(false);
-      const nickname = simulateCheckNickname(userId, zoneId);
-      setUserNickname(nickname);
-    }, 450);
-  };
 
   // Promo handler
   const handleApplyPromo = () => {
@@ -204,17 +189,13 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
       return;
     }
 
-    if (!isAccountProduct && !userNickname) {
-      setUserNickname(simulateCheckNickname(userId, zoneId));
-    }
-
     setShowConfirmModal(true);
   };
 
   const handleFinalConfirmOrder = () => {
     if (!selectedItem || !selectedPayment) return;
 
-    const orderId = generateOrderId('ADV');
+    const orderId = generateOrderId('AST');
     const newOrder: Order = {
       id: orderId,
       createdAt: new Date().toISOString(),
@@ -226,7 +207,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
       itemName: selectedItem.name,
       userId: !isAccountProduct ? userId.trim() : undefined,
       zoneId: !isAccountProduct ? zoneId.trim() : undefined,
-      userNickname: !isAccountProduct ? userNickname || simulateCheckNickname(userId, zoneId) : 'Pembeli Akun Advance Server',
+      userNickname: !isAccountProduct ? `Player MLBB (ID: ${userId.trim()})` : 'Pembeli Akun Advance Server',
       whatsapp: whatsapp.trim(),
       email: email.trim() || undefined,
       paymentMethodId: selectedPayment.id,
@@ -406,12 +387,9 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                 <input
                   type="text"
                   value={userId}
-                  onChange={(e) => {
-                    setUserId(e.target.value);
-                    setUserNickname('');
-                  }}
+                  onChange={(e) => setUserId(e.target.value)}
                   placeholder="Contoh: 12345678"
-                  className="w-full px-4 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
 
@@ -422,41 +400,18 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                 <input
                   type="text"
                   value={zoneId}
-                  onChange={(e) => {
-                    setZoneId(e.target.value);
-                    setUserNickname('');
-                  }}
+                  onChange={(e) => setZoneId(e.target.value)}
                   placeholder="Contoh: 2024"
-                  className="w-full px-4 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-neutral-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="text-xs">
-                {userNickname ? (
-                  <div className="flex items-center gap-2 text-emerald-400 font-medium">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Nickname Terverifikasi: <strong className="text-white underline">{userNickname}</strong></span>
-                  </div>
-                ) : (
-                  <p className="text-neutral-400">
-                    Diamond dari BB Coin akan dikirimkan otomatis ke User ID ini.
-                  </p>
-                )}
-                {nicknameError && (
-                  <p className="text-red-400 text-xs mt-1">{nicknameError}</p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCheckNickname}
-                disabled={isCheckingNickname}
-                className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-blue-300 text-xs font-medium rounded-lg border border-neutral-700 active:scale-95 transition-all whitespace-nowrap"
-              >
-                {isCheckingNickname ? 'Mengecek ke Server...' : 'Cek Nickname Otomatis'}
-              </button>
+            <div className="mt-3 p-3 bg-neutral-950/80 rounded-xl border border-neutral-800 text-xs text-neutral-400 flex items-start gap-2.5">
+              <span className="text-blue-400 font-bold shrink-0">ℹ️</span>
+              <p className="leading-relaxed">
+                Diamond dari konversi BB Coin akan langsung dikirimkan ke nomor <strong>User ID ({userId || '...'})</strong> dan <strong>Server ({zoneId || '...'})</strong> di atas. Mohon pastikan angka ID yang Anda ketik sudah benar.
+              </p>
             </div>
 
             {/* ================= DISCLAIMER WAJIB TOP UP DIAMOND ADVANCE ================= */}
@@ -790,9 +745,9 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
             {/* QRIS */}
             <div>
               <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
-                QRIS (BCA, Mandiri, BRI, BNI, GoPay, OVO, DANA, ShopeePay)
+                QRIS (Instan & Bebas Biaya Admin)
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 {PAYMENT_CHANNELS.filter((p) => p.group === 'QRIS').map((channel) => {
                   const isSelected = selectedPayment.id === channel.id;
                   const fee = calculatePaymentFee(subtotal - discountAmount, channel.feePercent, channel.feeFixed);
@@ -805,24 +760,24 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                       onClick={() => setSelectedPayment(channel)}
                       className={`p-3.5 rounded-xl border text-left flex items-center justify-between transition-all ${
                         isSelected
-                          ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500'
+                          ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500 shadow-md shadow-blue-600/20'
                           : 'bg-neutral-950/70 border-neutral-800 hover:border-neutral-700'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center font-bold text-xs text-blue-400">
+                        <div className="w-12 h-10 rounded-lg bg-white p-1 flex items-center justify-center font-bold text-xs text-neutral-900 shadow-sm">
                           QRIS
                         </div>
                         <div>
-                          <span className="text-xs font-bold text-white block">{channel.name}</span>
-                          <span className="text-[11px] text-neutral-400">Biaya: {channel.feePercent}%</span>
+                          <span className="text-sm font-bold text-white block">{channel.name}</span>
+                          <span className="text-[11px] text-neutral-400">Scan via m-Banking atau e-Wallet apapun</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-bold text-blue-400 font-mono tabular-nums block">
+                        <span className="text-sm font-bold text-blue-400 font-mono tabular-nums block">
                           {formatIDR(grandTotal)}
                         </span>
-                        <span className="text-[10px] text-emerald-400">Instan</span>
+                        <span className="text-[10px] text-emerald-400 font-semibold">⚡ Verifikasi Instan</span>
                       </div>
                     </button>
                   );
@@ -830,13 +785,13 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
               </div>
             </div>
 
-            {/* Virtual Account */}
+            {/* E-Wallet: GoPay & DANA */}
             <div>
               <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
-                Virtual Account Bank
+                E-Wallet Resmi (GoPay & DANA)
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {PAYMENT_CHANNELS.filter((p) => p.group === 'Virtual Account').map((channel) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PAYMENT_CHANNELS.filter((p) => p.group === 'E-Wallet').map((channel) => {
                   const isSelected = selectedPayment.id === channel.id;
                   const fee = calculatePaymentFee(subtotal - discountAmount, channel.feePercent, channel.feeFixed);
                   const grandTotal = Math.max(0, subtotal - discountAmount + fee);
@@ -846,20 +801,30 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                       key={channel.id}
                       type="button"
                       onClick={() => setSelectedPayment(channel)}
-                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      className={`p-3.5 rounded-xl border text-left flex items-center justify-between transition-all ${
                         isSelected
-                          ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500'
+                          ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500 shadow-md shadow-blue-600/20'
                           : 'bg-neutral-950/70 border-neutral-800 hover:border-neutral-700'
                       }`}
                     >
-                      <div>
-                        <span className="text-xs font-bold text-white block">{channel.name}</span>
-                        <span className="text-[10px] text-neutral-400">Biaya: {formatIDR(channel.feeFixed)}</span>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${
+                          channel.code === 'GOPAY'
+                            ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                        }`}>
+                          {channel.code}
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white block">{channel.name}</span>
+                          <span className="text-[11px] text-neutral-400">Biaya: {formatIDR(fee)}</span>
+                        </div>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-neutral-800">
+                      <div className="text-right">
                         <span className="text-xs font-bold text-blue-400 font-mono tabular-nums block">
                           {formatIDR(grandTotal)}
                         </span>
+                        <span className="text-[10px] text-emerald-400 font-semibold">Otomatis</span>
                       </div>
                     </button>
                   );
@@ -991,7 +956,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
             {!isAccountProduct && (
               <div className="flex items-center justify-between text-neutral-400">
                 <span>Tujuan Top Up MLBB:</span>
-                <span className="font-mono text-emerald-400">{userId} ({zoneId}) - {userNickname || 'Checking'}</span>
+                <span className="font-mono text-emerald-400">{userId} ({zoneId})</span>
               </div>
             )}
 
@@ -1054,7 +1019,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
               </button>
             )}
             <p className="text-center text-[11px] text-neutral-400 mt-2.5">
-              Dengan mengklik Beli Sekarang, Anda menyetujui Syarat & Ketentuan transaksi otomatis Aster4 STORE.
+              Dengan mengklik Beli Sekarang, Anda menyetujui Syarat & Ketentuan transaksi otomatis ASTERA STORE.
             </p>
           </div>
         </section>
@@ -1089,12 +1054,8 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
               {!isAccountProduct && (
                 <>
                   <div className="flex justify-between py-1 border-b border-neutral-800/60">
-                    <span className="text-neutral-400">User ID & Server:</span>
+                    <span className="text-neutral-400">Target User ID & Zone ID:</span>
                     <span className="font-mono text-white font-bold">{userId} ({zoneId})</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-neutral-800/60">
-                    <span className="text-neutral-400">Nickname MLBB:</span>
-                    <span className="font-semibold text-emerald-400">{userNickname || simulateCheckNickname(userId, zoneId)}</span>
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-amber-950/50 border border-amber-800/80 text-[11px] text-amber-200 flex items-start gap-2">

@@ -63,7 +63,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
 
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-blue-400 font-bold text-xs">Aster4 STORE</span>
+            <span className="text-blue-400 font-bold text-xs">ASTERA STORE</span>
             <span className="text-neutral-600">·</span>
             <span className="text-neutral-400 text-xs">Pelacakan Transaksi</span>
           </div>
@@ -187,7 +187,7 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
 
           {!hasSearched && (
             <div className="p-4 rounded-xl bg-neutral-950/60 border border-neutral-800 text-center text-xs text-neutral-400">
-              <p>Riwayat pesanan di Aster4 STORE tersimpan secara aman di peramban Anda.</p>
+              <p>Riwayat pesanan di ASTERA STORE tersimpan secara aman di peramban Anda.</p>
               <p className="mt-1 text-[11px] text-neutral-500">
                 Punya kendala transaksi? Hubungi CS WhatsApp resmi kami untuk respon instan.
               </p>

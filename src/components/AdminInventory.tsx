@@ -559,7 +559,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Aster4_STORE_Laporan_Transaksi_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `ASTERA_STORE_Laporan_Transaksi_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -598,7 +598,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-blue-400 font-bold text-xs tracking-wider uppercase">
-              Aster4 STORE Enterprise Portal
+              ASTERA STORE Enterprise Portal
             </span>
             <span className="text-neutral-600">·</span>
             <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
@@ -800,7 +800,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
           }`}
         >
           <BookOpen className="w-4 h-4 text-amber-400" />
-          <span>Panduan & Alur Manajemen Aster4 STORE</span>
+          <span>Panduan & Alur Manajemen ASTERA STORE</span>
         </button>
       </div>
 
@@ -1439,21 +1439,21 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
         </div>
       )}
 
-      {/* ================= TAB 5: PANDUAN & ALUR LENGKAP MANAJEMEN BISNIS ASTER4 STORE ================= */}
+      {/* ================= TAB 5: PANDUAN & ALUR LENGKAP MANAJEMEN BISNIS ASTERA STORE ================= */}
       {activeTab === 'guide' && (
         <div className="space-y-8 animate-in fade-in duration-300">
           {/* Header Banner */}
           <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-950/60 via-neutral-900 to-red-950/40 border border-blue-900/60 shadow-xl">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-red-600 flex items-center justify-center font-black text-white shadow-md">
-                A4
+                AS
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                Standar Operasional & Alur Manajemen Aster4 STORE
+                Standar Operasional & Alur Manajemen ASTERA STORE
               </h2>
             </div>
             <p className="text-neutral-300 text-xs sm:text-sm max-w-3xl leading-relaxed">
-              Dokumentasi lengkap tata kelola inventaris, otomatisasi pembayaran, sistem pengiriman data akun instan di layar website, konversi BB Coin ke Diamond, dan strategi margin keuntungan bisnis Aster4 STORE.
+              Dokumentasi lengkap tata kelola inventaris, otomatisasi pembayaran, sistem pengiriman data akun instan di layar website, konversi BB Coin ke Diamond, dan strategi margin keuntungan bisnis ASTERA STORE.
             </p>
           </div>
 
@@ -1529,7 +1529,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   <span>1. Validasi Akun Gamers</span>
                 </div>
                 <p className="text-neutral-400 leading-relaxed">
-                  Pembeli memasukkan User ID dan Zone ID. Sistem Aster4 STORE menjalankan validasi nickname real-time untuk memastikan server dan akun target valid sebelum lanjut ke pembayaran.
+                  Pembeli memasukkan User ID dan Zone ID secara langsung. Sistem ASTERA STORE memproses pesanan sesuai data ID yang dimasukkan pembeli tanpa hambatan.
                 </p>
               </div>
 
@@ -1539,7 +1539,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   <span>2. Rumus Rasio Konversi</span>
                 </div>
                 <p className="text-neutral-400 leading-relaxed">
-                  Rasio resmi: <strong>5 BB Coin = 1 Diamond</strong>. Contoh: 1.000 BB = 200 DM (Rp 10.000), 5.000 BB = 1.000 DM (Rp 25.000), hingga 50.000 BB = 10.000 DM (Rp 250.000). Harga sesuai tabel resmi Aster4 STORE.
+                  Rasio resmi: <strong>5 BB Coin = 1 Diamond</strong>. Contoh: 1.000 BB = 200 DM (Rp 10.000), 5.000 BB = 1.000 DM (Rp 25.000), hingga 50.000 BB = 10.000 DM (Rp 250.000). Harga sesuai tabel resmi ASTERA STORE.
                 </p>
               </div>
 
@@ -1563,10 +1563,10 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-white">
-                  Alur Integrasi Pembayaran Otomatis (QRIS & Virtual Account)
+                  Alur Integrasi Pembayaran Otomatis (QRIS & E-Wallet GoPay, DANA)
                 </h3>
                 <p className="text-xs text-neutral-400">
-                  Pembayaran otomatis 24 jam nonstop tanpa perlu kirim struk bukti transfer manual ke WhatsApp.
+                  Pembayaran otomatis jam 09:00 - 22:00 WIB tanpa perlu kirim struk bukti transfer manual ke WhatsApp.
                 </p>
               </div>
             </div>
@@ -1575,7 +1575,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
               <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
                 <span className="font-bold text-white block mb-1 text-xs">A. Generate Invoice</span>
                 <p className="text-neutral-400 text-[11px] leading-relaxed">
-                  Nomor invoice unik dihasilkan (contoh: AST-261020-XXXX) bersama kode bayar QRIS dinamis atau nomor Virtual Account bank (BCA, Mandiri, BRI, BNI).
+                  Nomor invoice unik dihasilkan (contoh: AST-261020-XXXX) bersama kode bayar QRIS dinamis atau transfer E-Wallet (GoPay & DANA).
                 </p>
               </div>
 
@@ -1596,7 +1596,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
               <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800">
                 <span className="font-bold text-white block mb-1 text-xs">D. Settlement Dana</span>
                 <p className="text-neutral-400 text-[11px] leading-relaxed">
-                  Dana hasil penjualan langsung masuk ke saldo kas Aster4 STORE dan siap dicairkan (disbursement) harian ke rekening bank pemilik toko.
+                  Dana hasil penjualan langsung masuk ke saldo kas ASTERA STORE dan siap dicairkan (disbursement) harian ke rekening pemilik toko.
                 </p>
               </div>
             </div>
@@ -1624,7 +1624,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   <tr className="border-b border-neutral-800 text-neutral-400 text-[11px] uppercase">
                     <th className="py-2.5 px-3">Produk / Paket</th>
                     <th className="py-2.5 px-3">Modal Dasar (HPP)</th>
-                    <th className="py-2.5 px-3">Harga Jual Aster4</th>
+                    <th className="py-2.5 px-3">Harga Jual ASTERA STORE</th>
                     <th className="py-2.5 px-3">Margin Laba Bersih</th>
                     <th className="py-2.5 px-3">Persentase Margin</th>
                     <th className="py-2.5 px-3">Status Pemenuhan</th>

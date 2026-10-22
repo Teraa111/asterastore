@@ -16,7 +16,7 @@ export function calculatePaymentFee(subtotal: number, feePercent: number, feeFix
   return percentFee + feeFixed;
 }
 
-export function generateOrderId(prefix = 'A4'): string {
+export function generateOrderId(prefix = 'AST'): string {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -30,3 +30,35 @@ export function generateSerialNumber(): string {
   const rand = Math.floor(100000 + Math.random() * 900000);
   return `SN-AUTO${time}${rand}`;
 }
+
+export interface StoreOperatingStatus {
+  isOpen: boolean;
+  currentWibHour: number;
+  currentWibMinute: number;
+  timeStringWib: string;
+  statusBadge: string;
+  operatingHoursText: string;
+}
+
+export function getStoreOperatingStatus(): StoreOperatingStatus {
+  const now = new Date();
+  // WIB is UTC+7
+  const utcHours = now.getUTCHours();
+  const utcMinutes = now.getUTCMinutes();
+  const wibHour = (utcHours + 7) % 24;
+  const wibMinute = utcMinutes;
+  
+  // Store is open from 09:00 WIB to 22:00 WIB (Tutup jam 10 malam)
+  const isOpen = wibHour >= 9 && wibHour < 22;
+  const timeStringWib = `${String(wibHour).padStart(2, '0')}:${String(wibMinute).padStart(2, '0')} WIB`;
+
+  return {
+    isOpen,
+    currentWibHour: wibHour,
+    currentWibMinute: wibMinute,
+    timeStringWib,
+    statusBadge: isOpen ? 'Toko Buka (Tutup 22:00 WIB)' : 'Toko Tutup (Buka 09:00 WIB)',
+    operatingHoursText: '09:00 - 22:00 WIB (Tutup Jam 10 Malam)',
+  };
+}
+

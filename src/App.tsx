@@ -181,7 +181,7 @@ export default function App() {
             <div className="mb-6 pb-3 border-b border-neutral-800 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-white tracking-tight">
-                  Pilih Layanan Utama Aster4 STORE
+                  Pilih Layanan Utama ASTERA STORE
                 </h2>
                 <p className="text-xs text-neutral-400 mt-0.5">
                   Tersedia 2 produk spesialis Mobile Legends dengan sistem inventaris dan pengiriman otomatis.

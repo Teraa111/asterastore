@@ -17,7 +17,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       <div className="absolute inset-0 z-0">
         <img
           src={HERO_PROMO_IMG}
-          alt="Aster4 STORE Mobile Legends"
+          alt="ASTERA STORE Mobile Legends"
           referrerPolicy="no-referrer"
           className="w-full h-full object-cover object-center brightness-35"
         />
@@ -29,7 +29,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         {/* Editorial Subtitle / Kicker */}
         <div className="flex items-center gap-2 mb-3">
           <span className="text-blue-400 font-bold text-xs tracking-wider uppercase">
-            ASTER4 STORE · SPESIALIS RESMI MLBB
+            ASTERA STORE · SPESIALIS RESMI MLBB
           </span>
           <span className="text-neutral-600">·</span>
           <span className="text-red-400 text-xs font-semibold">Data Akun Langsung Tampil di Website</span>
@@ -41,7 +41,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         </h1>
 
         <p className="mt-3 text-sm sm:text-base text-neutral-300 max-w-xl leading-relaxed">
-          Platform resmi <strong>Aster4 STORE</strong> untuk <strong>Akun Mobile Legends Advance Server</strong> (kredensial login email/password langsung muncul di website setelah bayar) dan <strong>Top Up Diamond hemat via BB Coin</strong> auto-konversi 5:1 instan.
+          Platform resmi <strong>ASTERA STORE</strong> untuk <strong>Akun Mobile Legends Advance Server</strong> (kredensial login email/password langsung muncul di website setelah bayar) dan <strong>Top Up Diamond hemat via BB Coin</strong> auto-konversi 5:1 instan.
         </p>
 
         {/* Direct Product Selector CTAs */}

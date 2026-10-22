@@ -11,6 +11,8 @@ interface NavbarProps {
   onAdminLogout?: () => void;
 }
 
+import { getStoreOperatingStatus } from '../utils/currency';
+
 export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   isAdminAuthenticated,
@@ -20,29 +22,41 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectProduct,
   onAdminLogout,
 }) => {
+  const storeStatus = getStoreOperatingStatus();
+
   return (
     <header className="sticky top-0 z-40 w-full bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-6 px-4 sm:px-6 h-16">
-        {/* Zone 1: Brand Wordmark (Aster4 STORE) */}
-        <button
-          onClick={() => {
-            onSelectProduct(null);
-            onNavigate('store');
-          }}
-          className="flex items-center gap-2.5 text-left group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-        >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-red-600 flex items-center justify-center font-black text-white text-sm tracking-wider shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform border border-blue-400/30">
-            A4
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tight text-white group-hover:text-blue-400 transition-colors whitespace-nowrap">
-              Aster4 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-500">STORE</span>
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 h-16">
+        {/* Zone 1: Brand Wordmark (ASTERA STORE) & Status */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              onSelectProduct(null);
+              onNavigate('store');
+            }}
+            className="flex items-center gap-2.5 text-left group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-red-600 flex items-center justify-center font-black text-white text-sm tracking-wider shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform border border-blue-400/30">
+              AS
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-black tracking-tight text-white group-hover:text-blue-400 transition-colors whitespace-nowrap">
+                ASTERA <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-500">STORE</span>
+              </span>
+              <span className="text-[10px] text-neutral-400 tracking-wider font-semibold uppercase -mt-1 hidden sm:block">
+                Advance Server & BB Coin Auto Konversi 5:1
+              </span>
+            </div>
+          </button>
+
+          {/* Operational Hours Badge */}
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-neutral-900 border-neutral-800">
+            <span className={`w-2 h-2 rounded-full ${storeStatus.isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+            <span className={storeStatus.isOpen ? 'text-emerald-300' : 'text-red-300'}>
+              {storeStatus.isOpen ? 'Buka (Tutup 22:00 WIB)' : 'Tutup (Buka 09:00 WIB)'}
             </span>
-            <span className="text-[10px] text-neutral-400 tracking-wider font-semibold uppercase -mt-1 hidden sm:block">
-              Advance Server & BB Coin Auto Konversi 5:1
-            </span>
           </div>
-        </button>
+        </div>
 
         {/* Zone 2: Navigation Links */}
         <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-neutral-300">

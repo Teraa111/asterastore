@@ -55,7 +55,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
             <Lock className="w-7 h-7" />
           </div>
           <h2 className="text-xl font-extrabold text-white tracking-tight">
-            Verifikasi Pemilik Aster4 STORE
+            Verifikasi Pemilik ASTERA STORE
           </h2>
           <p className="text-xs text-neutral-400 mt-1 max-w-xs">
             Area ini khusus untuk pemilik toko mengelola brankas stok akun, margin harga, dan keuangan.

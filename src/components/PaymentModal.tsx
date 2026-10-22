@@ -69,7 +69,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const copyAllAccountData = () => {
     if (!currentOrder.accountDelivered) return;
     const acc = currentOrder.accountDelivered;
-    const fullText = `*DATA AKUN ADVANCE SERVER - ASTER4 STORE*\nNomor Pesanan: ${currentOrder.id}\nEmail: ${acc.email}\nPassword: ${acc.password}\nServer: ${acc.serverInfo}\nBind: ${acc.bindType}\nPanduan: ${acc.notes || '-'}`;
+    const fullText = `*DATA AKUN ADVANCE SERVER - ASTERA STORE*\nNomor Pesanan: ${currentOrder.id}\nEmail: ${acc.email}\nPassword: ${acc.password}\nServer: ${acc.serverInfo}\nBind: ${acc.bindType}\nPanduan: ${acc.notes || '-'}`;
     copyToClipboard(fullText, 'all_account');
   };
 
@@ -77,7 +77,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (!currentOrder.accountDelivered) return;
     const acc = currentOrder.accountDelivered;
     const content = `=====================================================
-ASTER4 STORE - BUKTI PENGIRIMAN AKUN ADVANCE SERVER MLBB
+ASTERA STORE - BUKTI PENGIRIMAN AKUN ADVANCE SERVER MLBB
 =====================================================
 Nomor Pesanan : ${currentOrder.id}
 Tanggal       : ${new Date().toLocaleString('id-ID')}
@@ -106,15 +106,15 @@ PANDUAN LOGIN & MASUK SERVER ADVANCE:
 6. Selamat! Anda sekarang berada di Advance Server dan bisa menikmati hero & skin baru lebih dulu.
 7. Sangat disarankan untuk langsung mengganti password Moonton demi kenyamanan privasi Anda.
 
-Garansi: 100% Anti-Hackback & Dukungan CS 24 Jam.
-Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
+Garansi: 100% Anti-Hackback & Dukungan CS 09:00 - 22:00 WIB.
+Customer Support WhatsApp ASTERA STORE: 0812-3456-7890
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Aster4_STORE_Akun_Advance_${currentOrder.id}.txt`;
+    link.download = `ASTERA_STORE_Akun_Advance_${currentOrder.id}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -134,9 +134,8 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
     });
   };
 
-  const isQris = currentOrder.paymentGroup === 'QRIS';
-  const isVA = currentOrder.paymentGroup === 'Virtual Account';
-  const vaNumber = currentOrder.virtualAccount || '89201982736152';
+  const isQris = currentOrder.paymentGroup === 'QRIS' || currentOrder.paymentMethodId === 'pay-qris';
+  const isEwallet = currentOrder.paymentGroup === 'E-Wallet';
   const isAccount = currentOrder.productType === 'advance_account';
 
   return (
@@ -343,7 +342,7 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
               <div className="bg-neutral-950 rounded-xl p-4 border border-neutral-800 text-xs space-y-2">
                 <div className="flex justify-between">
                   <span className="text-neutral-400">Merchant Resmi:</span>
-                  <span className="font-bold text-white">Aster4 STORE INDONESIA</span>
+                  <span className="font-bold text-white">ASTERA STORE INDONESIA</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-400">Total Pembayaran:</span>
@@ -359,11 +358,11 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
               <div className="flex gap-2">
                 <a
                   href={`https://wa.me/62${currentOrder.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(
-                    `*STRUK RESMI ASTER4 STORE*\nNomor Pesanan: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nItem: ${currentOrder.itemName}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nStatus: SUKSES\n${
+                    `*STRUK RESMI ASTERA STORE*\nNomor Pesanan: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nItem: ${currentOrder.itemName}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nStatus: SUKSES\n${
                       isAccount && currentOrder.accountDelivered
                         ? `Email Akun: ${currentOrder.accountDelivered.email}\nPassword: ${currentOrder.accountDelivered.password}\nServer: ${currentOrder.accountDelivered.serverInfo}`
                         : `User ID: ${currentOrder.userId || '-'}\nSN: ${currentOrder.serialNumberDelivery || '-'}\nKetentuan: Diamond masuk jam 20:00 WIB di Mailbox (Live streaming aktif & Min. Rank Master)`
-                    }\n\nTerima kasih telah berbelanja di Aster4 STORE!`
+                    }\n\nTerima kasih telah berbelanja di ASTERA STORE!`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -420,7 +419,7 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
                   <div className="p-3 bg-white rounded-2xl shadow-lg border border-neutral-700 max-w-[210px] w-full aspect-square flex flex-col items-center justify-between relative">
                     <div className="w-full h-full bg-white flex flex-col items-center justify-between p-1">
                       <div className="w-full text-center border-b border-black pb-1 mb-1">
-                        <span className="text-[10px] font-black tracking-widest text-black">QRIS ASTER4 STORE</span>
+                        <span className="text-[10px] font-black tracking-widest text-black">QRIS ASTERA STORE</span>
                       </div>
                       <div className="w-36 h-36 bg-black p-1 rounded grid grid-cols-7 gap-1">
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
@@ -431,8 +430,8 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
                           <div className="w-4 h-4 bg-black rounded-xs" />
                         </div>
                         <div className="bg-white rounded-sm col-span-3" />
-                        <div className="bg-gradient-to-r from-blue-600 to-red-600 col-span-1 flex items-center justify-center font-black text-[9px] text-white">
-                          A4
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-red-600 col-span-1 flex items-center justify-center font-black text-[9px] text-white">
+                          AS
                         </div>
                         <div className="bg-white rounded-sm col-span-2" />
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
@@ -441,31 +440,36 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
                         <div className="bg-white rounded-sm col-span-5" />
                       </div>
                       <div className="w-full text-center pt-1 text-[8px] text-black font-mono font-bold">
-                        NMID: ID99281726481 (ASTER4 STORE)
+                        NMID: ID99281726481 (ASTERA STORE)
                       </div>
                     </div>
                   </div>
 
                   <p className="text-xs text-neutral-400 text-center mt-3 max-w-xs">
-                    Scan via GoPay, OVO, DANA, ShopeePay, BCA Mobile, atau m-Banking apapun.
+                    Scan via GoPay, DANA, BCA Mobile, atau aplikasi m-Banking/E-Wallet QRIS apapun.
                   </p>
                 </div>
               )}
 
-              {/* Virtual Account */}
-              {isVA && (
+              {/* E-Wallet Channel View (GoPay & DANA) */}
+              {isEwallet && (
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800">
-                    <span className="text-xs text-neutral-400 block mb-1">Nomor Virtual Account ({currentOrder.paymentMethodName}):</span>
+                    <span className="text-xs text-neutral-400 block mb-1">
+                      Nomor Akun Transfer E-Wallet ({currentOrder.paymentMethodName}):
+                    </span>
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-mono font-bold text-white tracking-wider select-all">
-                        {vaNumber}
-                      </span>
+                      <div>
+                        <span className="text-lg font-mono font-bold text-white tracking-wider select-all block">
+                          0812-3456-7890
+                        </span>
+                        <span className="text-[11px] text-emerald-400 font-medium">a/n ASTERA STORE RESMI</span>
+                      </div>
                       <button
-                        onClick={() => copyToClipboard(vaNumber, 'va')}
+                        onClick={() => copyToClipboard('081234567890', 'ewallet')}
                         className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs font-semibold rounded-lg flex items-center gap-1.5"
                       >
-                        {copiedField === 'va' ? (
+                        {copiedField === 'ewallet' ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
                             <span>Tersalin</span>
@@ -473,12 +477,15 @@ Customer Support WhatsApp Aster4 STORE: 0812-3456-7890
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5" />
-                            <span>Salin VA</span>
+                            <span>Salin No HP</span>
                           </>
                         )}
                       </button>
                     </div>
                   </div>
+                  <p className="text-[11px] text-neutral-400 text-center">
+                    Buka aplikasi {currentOrder.paymentMethodName}, transfer tepat <strong>{formatIDR(currentOrder.totalAmount)}</strong> ke nomor di atas. Sistem mendeteksi pembayaran secara otomatis.
+                  </p>
                 </div>
               )}
 
