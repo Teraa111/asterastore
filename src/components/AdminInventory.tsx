@@ -35,6 +35,7 @@ import {
   Ban,
   ToggleLeft,
   ToggleRight,
+  Trash2,
 } from 'lucide-react';
 
 interface AdminInventoryProps {
@@ -65,6 +66,16 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
 
   const [editingItem, setEditingItem] = useState<{ productId: string; item: DenominationItem } | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+
+  // Edit Account Credential states (Ubah Email / Password / Server / Notes / Denom)
+  const [editingAccount, setEditingAccount] = useState<{
+    productId: string;
+    currentDenomId: string;
+    targetDenomId: string;
+    account: AccountCredential;
+  } | null>(null);
+  const [showEditAccPassword, setShowEditAccPassword] = useState(false);
+  const [copiedAccId, setCopiedAccId] = useState<string | null>(null);
 
   // PIN Management states
   const [showChangePinModal, setShowChangePinModal] = useState(false);
@@ -172,6 +183,134 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
     setNewAccEmail('');
     setNewAccPassword('');
     setShowAddAccountModal(false);
+    showToast('Akun baru berhasil ditambahkan ke brankas!', 'success');
+  };
+
+  // Open Edit Account Modal (Ubah email, password, server, level jika salah ketik)
+  const handleOpenEditAccount = (productId: string, denomId: string, account: AccountCredential) => {
+    setEditingAccount({
+      productId,
+      currentDenomId: denomId,
+      targetDenomId: denomId,
+      account: { ...account },
+    });
+    setShowEditAccPassword(false);
+  };
+
+  // Save Account Credential Edit (Email / Password / Server / Notes / Move Denom)
+  const handleSaveAccountEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount) return;
+
+    const { productId, currentDenomId, targetDenomId, account } = editingAccount;
+    const cleanEmail = account.email.trim();
+    const cleanPassword = account.password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      showToast('Email dan Password akun Moonton tidak boleh kosong!', 'warning');
+      return;
+    }
+
+    const updatedAccount: AccountCredential = {
+      ...account,
+      email: cleanEmail,
+      password: cleanPassword,
+      serverInfo: (account.serverInfo || '').trim(),
+      notes: (account.notes || '').trim(),
+      level: Number(account.level) || 8,
+    };
+
+    const updated = products.map((prod) => {
+      if (prod.id !== productId) return prod;
+
+      // Case A: Moved to another denomination package
+      if (currentDenomId !== targetDenomId) {
+        return {
+          ...prod,
+          denominations: prod.denominations.map((denom) => {
+            if (denom.id === currentDenomId) {
+              const newPool = (denom.accountPool || []).filter((a) => a.id !== updatedAccount.id);
+              return {
+                ...denom,
+                accountPool: newPool,
+                stockCount: newPool.filter((a) => !a.isSold).length,
+              };
+            }
+            if (denom.id === targetDenomId) {
+              const newPool = [...(denom.accountPool || []), updatedAccount];
+              return {
+                ...denom,
+                accountPool: newPool,
+                stockCount: newPool.filter((a) => !a.isSold).length,
+              };
+            }
+            return denom;
+          }),
+        };
+      }
+
+      // Case B: Same denomination package (update email/password/details in place)
+      return {
+        ...prod,
+        denominations: prod.denominations.map((denom) => {
+          if (denom.id === currentDenomId) {
+            const newPool = (denom.accountPool || []).map((a) =>
+              a.id === updatedAccount.id ? updatedAccount : a
+            );
+            return {
+              ...denom,
+              accountPool: newPool,
+              stockCount: newPool.filter((a) => !a.isSold).length,
+            };
+          }
+          return denom;
+        }),
+      };
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+    setEditingAccount(null);
+    showToast(`✅ Kredensial akun (${cleanEmail}) berhasil diperbarui!`, 'success');
+  };
+
+  // Delete Account from Pool
+  const handleDeleteAccount = (productId: string, denomId: string, accountId: string, email: string) => {
+    if (!window.confirm(`Yakin ingin menghapus akun (${email}) dari brankas stok?`)) {
+      return;
+    }
+
+    const updated = products.map((prod) => {
+      if (prod.id !== productId) return prod;
+      return {
+        ...prod,
+        denominations: prod.denominations.map((denom) => {
+          if (denom.id === denomId) {
+            const newPool = (denom.accountPool || []).filter((a) => a.id !== accountId);
+            return {
+              ...denom,
+              accountPool: newPool,
+              stockCount: newPool.filter((a) => !a.isSold).length,
+            };
+          }
+          return denom;
+        }),
+      };
+    });
+
+    saveProducts(updated);
+    setProducts(updated);
+    if (editingAccount?.account.id === accountId) {
+      setEditingAccount(null);
+    }
+    showToast(`Akun (${email}) berhasil dihapus dari brankas stok.`, 'warning');
+  };
+
+  // Quick Copy Helper
+  const handleQuickCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedAccId(id);
+    setTimeout(() => setCopiedAccId(null), 2000);
   };
 
   // Save Item Price Edit
@@ -793,28 +932,55 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                     <th className="py-3 px-4">Level</th>
                     <th className="py-3 px-4">Status Stok</th>
                     <th className="py-3 px-4">Catatan Bind</th>
+                    <th className="py-3 px-4 text-right">Aksi & Edit Kredensial</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800/60 text-neutral-300 font-mono">
                   {accountProduct.denominations.flatMap((denom) =>
                     (denom.accountPool || []).map((acc) => (
-                      <tr key={acc.id} className="hover:bg-neutral-950/40">
-                        <td className="py-3 px-4 font-sans font-semibold text-white">
+                      <tr key={acc.id} className="hover:bg-neutral-950/60 transition-colors">
+                        <td className="py-3 px-4 font-sans font-semibold text-white whitespace-nowrap">
                           {denom.name}
                         </td>
                         <td className="py-3 px-4 text-blue-400 select-all">
-                          {acc.email}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold">{acc.email}</span>
+                            <button
+                              onClick={() => handleQuickCopyText(acc.email, `mail-${acc.id}`)}
+                              className="p-1 hover:text-white text-neutral-500 rounded"
+                              title="Salin Email"
+                            >
+                              {copiedAccId === `mail-${acc.id}` ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-amber-400 select-all">
-                          {acc.password}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold">{acc.password}</span>
+                            <button
+                              onClick={() => handleQuickCopyText(acc.password, `pass-${acc.id}`)}
+                              className="p-1 hover:text-white text-neutral-500 rounded"
+                              title="Salin Password"
+                            >
+                              {copiedAccId === `pass-${acc.id}` ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-neutral-300">
+                        <td className="py-3 px-4 text-neutral-300 whitespace-nowrap">
                           {acc.serverInfo}
                         </td>
-                        <td className="py-3 px-4 text-neutral-300">
+                        <td className="py-3 px-4 text-neutral-300 whitespace-nowrap">
                           Lv. {acc.level}
                         </td>
-                        <td className="py-3 px-4 font-sans">
+                        <td className="py-3 px-4 font-sans whitespace-nowrap">
                           {acc.isSold ? (
                             <span className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
                               Terjual ({acc.soldToOrderId || 'Order'})
@@ -827,6 +993,25 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                         </td>
                         <td className="py-3 px-4 font-sans text-neutral-400 text-[11px] max-w-xs truncate">
                           {acc.notes || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-sans whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditAccount(accountProduct.id, denom.id, acc)}
+                              className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs"
+                              title="Ganti Email / Password atau Perbaiki Salah Ketik"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Ganti / Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAccount(accountProduct.id, denom.id, acc.id, acc.email)}
+                              className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/50 text-[11px] transition-all active:scale-95"
+                              title="Hapus Akun dari Stok"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1810,6 +1995,283 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT / GANTI KREDENSIAL AKUN (SALAH KETIK / UPDATE) ================= */}
+      {editingAccount && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto animate-in fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Edit & Ganti Kredensial Akun</h3>
+                  <p className="text-xs text-neutral-400">
+                    Koreksi jika ada salah ketik email, password, atau ubah detail akun
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAccount(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-neutral-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAccountEdit} className="space-y-4 text-xs">
+              {/* Paket Akun (Option to Move) */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Kategori Paket Akun:
+                </label>
+                {accountProduct && (
+                  <select
+                    value={editingAccount.targetDenomId}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        targetDenomId: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    {accountProduct.denominations.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({formatIDR(d.priceSell)})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {editingAccount.currentDenomId !== editingAccount.targetDenomId && (
+                  <p className="text-[11px] text-amber-400 mt-1">
+                    * Akun akan dipindahkan ke kategori paket yang baru dipilih saat disimpan.
+                  </p>
+                )}
+              </div>
+
+              {/* Email Moonton */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-neutral-300 font-semibold">
+                    Email Moonton (Kredensial Login):
+                  </label>
+                  <span className="text-[10px] text-blue-400 font-mono">Bisa diubah jika ada typo</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={editingAccount.account.email}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        account: {
+                          ...editingAccount.account,
+                          email: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="contoh: adv.user@moonton-mail.com"
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Password Moonton */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-neutral-300 font-semibold">
+                    Password Akun Moonton:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditAccPassword(!showEditAccPassword)}
+                    className="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1"
+                  >
+                    {showEditAccPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    <span>{showEditAccPassword ? 'Sembunyikan' : 'Lihat Password'}</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showEditAccPassword ? 'text' : 'password'}
+                    required
+                    value={editingAccount.account.password}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        account: {
+                          ...editingAccount.account,
+                          password: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Masukkan password baru..."
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Server & Level */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Server Target:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingAccount.account.serverInfo}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        account: {
+                          ...editingAccount.account,
+                          serverInfo: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Level Akun:
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={150}
+                    required
+                    value={editingAccount.account.level}
+                    onChange={(e) =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        account: {
+                          ...editingAccount.account,
+                          level: Number(e.target.value),
+                        },
+                      })
+                    }
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Status Ketersediaan (Ready vs Terjual) */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Status Ketersediaan Akun:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        account: {
+                          ...editingAccount.account,
+                          isSold: false,
+                        },
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      !editingAccount.account.isSold
+                        ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/30'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Ready Kirim (Stok Ada)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingAccount({
+                        ...editingAccount,
+                        account: {
+                          ...editingAccount.account,
+                          isSold: true,
+                        },
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      editingAccount.account.isSold
+                        ? 'bg-amber-950/80 border-amber-500 text-amber-300 ring-2 ring-amber-500/30'
+                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                    }`}
+                  >
+                    <span>Sudah Terjual (Habis)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Catatan Bind & Instruksi */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Catatan Akun / Instruksi Login:
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingAccount.account.notes}
+                  onChange={(e) =>
+                    setEditingAccount({
+                      ...editingAccount,
+                      account: {
+                        ...editingAccount.account,
+                        notes: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="Catatan khusus yang akan tampil kepada pembeli..."
+                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-neutral-800 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleDeleteAccount(
+                      editingAccount.productId,
+                      editingAccount.currentDenomId,
+                      editingAccount.account.id,
+                      editingAccount.account.email
+                    )
+                  }
+                  className="px-3.5 py-2.5 rounded-xl bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/50 font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus Akun</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingAccount(null)}
+                    className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold transition-colors"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Simpan Perubahan</span>
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
