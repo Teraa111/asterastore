@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Order } from '../types/store';
 import { formatIDR } from '../utils/currency';
-import { triggerAutomaticFulfillment, getPaymentConfig } from '../utils/storage';
+import {
+  buyerConfirmPayment,
+  adminMarkOrderExpired,
+  getOrderStatusDetails,
+  loadOrders,
+  getPaymentConfig,
+} from '../utils/storage';
 import { QrisLogo, DanaLogo, GopayLogo } from './PaymentLogos';
 import {
   X,
@@ -18,6 +24,8 @@ import {
   UserCheck,
   ShieldCheck,
   AlertCircle,
+  HelpCircle,
+  RotateCcw,
 } from 'lucide-react';
 
 interface PaymentModalProps {
@@ -42,6 +50,22 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setCurrentOrder(order);
   }, [order]);
 
+  // Live Sync: update view immediately when Admin verifies order in Admin portal
+  useEffect(() => {
+    const handleOrdersChange = () => {
+      const freshOrders = loadOrders();
+      const match = freshOrders.find((o) => o.id === currentOrder.id);
+      if (match && match.status !== currentOrder.status) {
+        setCurrentOrder(match);
+        onOrderUpdated(match);
+      }
+    };
+    window.addEventListener('storeadv_orders_updated', handleOrdersChange);
+    return () => {
+      window.removeEventListener('storeadv_orders_updated', handleOrdersChange);
+    };
+  }, [currentOrder.id, currentOrder.status, onOrderUpdated]);
+
   useEffect(() => {
     if (currentOrder.status !== 'PENDING_PAYMENT') return;
 
@@ -49,6 +73,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          const expired = adminMarkOrderExpired(currentOrder.id);
+          if (expired) {
+            setCurrentOrder(expired);
+            onOrderUpdated(expired);
+          }
           return 0;
         }
         return prev - 1;
@@ -56,7 +85,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentOrder.status]);
+  }, [currentOrder.id, currentOrder.status, onOrderUpdated]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -127,13 +156,16 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
     if (currentOrder.status !== 'PENDING_PAYMENT') return;
     setIsVerifyingPayment(true);
 
-    triggerAutomaticFulfillment(currentOrder.id, (updated) => {
-      setCurrentOrder(updated);
-      onOrderUpdated(updated);
-      if (updated.status === 'SUCCESS') {
-        setIsVerifyingPayment(false);
+    setTimeout(() => {
+      // Keamanan Transaksi: Pembeli HANYA mengubah status menjadi WAITING_VERIFICATION
+      // Status Lunas (SUCCESS) HANYA bisa ditetapkan oleh Admin setelah verifikasi mutasi riil.
+      const updated = buyerConfirmPayment(currentOrder.id);
+      if (updated) {
+        setCurrentOrder(updated);
+        onOrderUpdated(updated);
       }
-    });
+      setIsVerifyingPayment(false);
+    }, 700);
   };
 
   const isQris = currentOrder.paymentGroup === 'QRIS' || currentOrder.paymentMethodId === 'pay-qris';
@@ -163,32 +195,48 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
               ? isAccount
                 ? 'Data Akun Berhasil Dikirimkan!'
                 : 'Top Up BB Coin Berhasil Masuk!'
-              : currentOrder.status === 'PROCESSING'
-              ? isAccount
-                ? 'Mendekripsi Data Akun Advance Server...'
-                : 'Mengonversi BB Coin ke Diamond MLBB...'
-              : 'Menunggu Pembayaran Otomatis'}
+              : currentOrder.status === 'WAITING_VERIFICATION'
+              ? 'Menunggu Verifikasi Admin'
+              : currentOrder.status === 'EXPIRED'
+              ? 'Waktu Pembayaran Habis'
+              : currentOrder.status === 'CANCELLED'
+              ? 'Pesanan Dibatalkan'
+              : 'Menunggu Pembayaran'}
           </h3>
 
           <div className="mt-2.5 flex items-center justify-center gap-2">
             {currentOrder.status === 'PENDING_PAYMENT' && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-950/60 border border-red-800/80 px-2.5 py-1 rounded-full font-medium">
+              <span className="inline-flex items-center gap-1.5 text-xs text-amber-400 bg-amber-950/60 border border-amber-800/80 px-2.5 py-1 rounded-full font-medium">
                 <Clock className="w-3.5 h-3.5" />
                 <span>Batas Waktu: {timeFormatted}</span>
               </span>
             )}
 
-            {currentOrder.status === 'PROCESSING' && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-blue-400 bg-blue-950/60 border border-blue-800/80 px-2.5 py-1 rounded-full font-medium animate-pulse">
-                <Zap className="w-3.5 h-3.5" />
-                <span>{isAccount ? 'Menyiapkan Kredensial Akun...' : 'Injeksi Diamond via BB Coin...'}</span>
+            {currentOrder.status === 'WAITING_VERIFICATION' && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-blue-400 bg-blue-950/60 border border-blue-800/80 px-2.5 py-1 rounded-full font-bold">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                <span>Menunggu Verifikasi Admin (+62 823-1208-8548)</span>
+              </span>
+            )}
+
+            {currentOrder.status === 'EXPIRED' && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-neutral-400 bg-neutral-950 border border-neutral-800 px-2.5 py-1 rounded-full font-medium">
+                <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                <span>Kedaluwarsa</span>
+              </span>
+            )}
+
+            {currentOrder.status === 'CANCELLED' && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-red-400 bg-red-950/60 border border-red-800/80 px-2.5 py-1 rounded-full font-medium">
+                <X className="w-3.5 h-3.5" />
+                <span>Dibatalkan</span>
               </span>
             )}
 
             {currentOrder.status === 'SUCCESS' && (
               <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1 rounded-full font-bold">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Lunas & Terkirim Langsung di Layar</span>
+                <span>Lunas & Terverifikasi Sah</span>
               </span>
             )}
           </div>
@@ -381,6 +429,123 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                 </button>
               </div>
             </div>
+          ) : currentOrder.status === 'WAITING_VERIFICATION' ? (
+            /* WAITING VERIFICATION STATE - BUYER HAS CONFIRMED PAYMENT */
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="p-5 rounded-2xl bg-gradient-to-b from-blue-950/60 to-neutral-950 border-2 border-blue-500/80 shadow-2xl text-center space-y-3">
+                <div className="w-14 h-14 rounded-full bg-blue-600/20 border border-blue-500 flex items-center justify-center mx-auto text-blue-400">
+                  <ShieldCheck className="w-7 h-7" />
+                </div>
+                <h4 className="text-base sm:text-lg font-black text-white">
+                  Konfirmasi Pembayaran Diterima
+                </h4>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-950 text-blue-400 border border-blue-800 text-xs font-bold uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                  <span>Status: Menunggu Verifikasi Admin</span>
+                </div>
+                <p className="text-xs text-neutral-300 leading-relaxed max-w-md mx-auto">
+                  Invoice <strong className="text-blue-400">{currentOrder.id}</strong> sebesar <strong className="text-white font-mono">{formatIDR(currentOrder.totalAmount)}</strong> telah masuk antrean pemeriksaan Admin ASTERA STORE.
+                </p>
+
+                <div className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 text-left text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Kebijakan Keamanan & Anti-Fraud ASTERA STORE:</span>
+                  </div>
+                  <p className="text-neutral-400 text-[11px] leading-relaxed">
+                    Sistem ASTERA STORE <strong>tidak melunaskan pesanan secara instan hanya berdasarkan klaim atau screenshot</strong>. Admin kami akan memeriksa mutasi dana riil yang masuk di rekening/QRIS DANA Admin (<strong>+62 823-1208-8548</strong>).
+                  </p>
+                  <div className="p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-800/60 text-emerald-300 text-[11px]">
+                    ✓ <strong>Layar ini akan otomatis diperbarui</strong> begitu Admin memverifikasi dan menyetujui mutasi dana Anda. {isAccount ? 'Data Email, Password, & Server Akun Advance Server' : 'Diamond MLBB'} akan langsung muncul di kotak layar ini!
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 py-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span className="text-[11px]">Menunggu persetujuan admin (Halaman sinkron otomatis saat disetujui)...</span>
+                </div>
+              </div>
+
+              {/* Fast verification via WhatsApp */}
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2.5 text-center">
+                <span className="text-xs text-neutral-400 block font-medium">
+                  Kirimkan bukti transfer sekarang agar Admin dapat segera memproses pesanan Anda:
+                </span>
+                <a
+                  href={`https://wa.me/6282312088548?text=${encodeURIComponent(
+                    `Halo Admin ASTERA STORE, saya sudah melakukan transfer pembayaran untuk:\nNomor Invoice: ${currentOrder.id}\nProduk: ${currentOrder.productTitle} (${currentOrder.itemName})\nTotal Transfer: ${formatIDR(currentOrder.totalAmount)}\nMetode: ${currentOrder.paymentMethodName}\n\nBerikut bukti transfer yang sah. Mohon dicek mutasinya dan diverifikasi. Terima kasih!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Kirim Bukti Transfer ke WhatsApp Admin (+62 823-1208-8548)</span>
+                </a>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={onClose}
+                  className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold text-xs rounded-xl transition-colors"
+                >
+                  Tutup Jendela (Status dapat dipantau di menu Lacak Pesanan)
+                </button>
+              </div>
+            </div>
+          ) : currentOrder.status === 'EXPIRED' ? (
+            /* EXPIRED STATE */
+            <div className="space-y-4 animate-in fade-in duration-300 text-center">
+              <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-red-950 border border-red-800 text-red-400 flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h4 className="text-lg font-bold text-white">Batas Waktu Pembayaran Telah Habis</h4>
+                <p className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed">
+                  Batas waktu pembayaran 15 menit untuk invoice <strong className="text-white">{currentOrder.id}</strong> telah kedaluwarsa.
+                </p>
+                <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-400">
+                  Jika Anda sudah terlanjur transfer dana, silakan hubungi Customer Care WhatsApp Admin (+62 823-1208-8548) dengan melampirkan bukti transfer untuk dibantu secara manual.
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={`https://wa.me/6282312088548?text=${encodeURIComponent(
+                    `Halo Admin ASTERA STORE, pesanan saya ${currentOrder.id} (${formatIDR(currentOrder.totalAmount)}) kedaluwarsa namun saya sudah transfer. Mohon bantuannya.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <span>Bantuan WhatsApp Admin</span>
+                </a>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl"
+                >
+                  Pesan Ulang
+                </button>
+              </div>
+            </div>
+          ) : currentOrder.status === 'CANCELLED' ? (
+            /* CANCELLED STATE */
+            <div className="space-y-4 animate-in fade-in duration-300 text-center">
+              <div className="p-6 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-red-950 border border-red-800 text-red-400 flex items-center justify-center mx-auto">
+                  <X className="w-6 h-6" />
+                </div>
+                <h4 className="text-lg font-bold text-white">Pesanan Telah Dibatalkan</h4>
+                <p className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed">
+                  Pesanan dengan invoice <strong className="text-white">{currentOrder.id}</strong> telah dibatalkan oleh Admin atau sistem.
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold rounded-xl"
+              >
+                Tutup
+              </button>
+            </div>
           ) : (
             /* PENDING PAYMENT STATE */
             <div className="space-y-5">
@@ -531,29 +696,29 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                 </div>
               )}
 
-              {/* Notice that account will be shown right here */}
+              {/* Notice that credentials are only revealed after Admin verifies */}
               <div className="bg-blue-950/40 border border-blue-800/60 rounded-xl p-3.5 flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-neutral-300">
-                  <strong className="text-blue-400 block mb-0.5">Pengiriman Otomatis di Website:</strong>
+                  <strong className="text-blue-400 block mb-0.5">Alur Verifikasi Pembayaran Resmi:</strong>
                   {isAccount
-                    ? 'Begitu pembayaran terverifikasi, kredensial akun Advance Server (Email, Password, Server) akan langsung muncul di kotak layar ini!'
-                    : 'Begitu pembayaran terverifikasi, konversi BB Coin ke Diamond akan otomatis diproses ke ID MLBB Anda dalam 1-3 detik.'}
+                    ? 'Setelah transfer atau scan QRIS, klik tombol konfirmasi di bawah. Admin akan memeriksa mutasi dana masuk di rekening sebelum data login akun Advance Server diserahkan.'
+                    : 'Setelah transfer atau scan QRIS, klik tombol konfirmasi di bawah. Admin akan memeriksa mutasi dana masuk di rekening sebelum Diamond diinjeksikan ke ID MLBB Anda.'}
                 </div>
               </div>
 
-              {/* Final Production Payment Actions */}
+              {/* Payment Actions */}
               <div className="space-y-2.5 pt-1">
                 <button
                   type="button"
                   onClick={handleConfirmPayment}
                   disabled={isVerifyingPayment || currentOrder.status !== 'PENDING_PAYMENT'}
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-emerald-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-blue-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
                 >
                   {isVerifyingPayment ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Memeriksa Pembayaran & Mengirim Data...</span>
+                      <span>Mencatat Konfirmasi Pembayaran...</span>
                     </>
                   ) : (
                     <>
@@ -565,7 +730,7 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
 
                 <a
                   href={`https://wa.me/6282312088548?text=${encodeURIComponent(
-                    `Halo Admin ASTERA STORE, saya sudah melakukan pembayaran untuk:\nNomor Invoice: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nMetode: ${currentOrder.paymentMethodName}\n\nMohon dicek dan diverifikasi. Terima kasih!`
+                    `Halo Admin ASTERA STORE, saya ingin konfirmasi pembayaran untuk:\nNomor Invoice: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nMetode: ${currentOrder.paymentMethodName}\n\nBerikut bukti transfer saya. Mohon dicek dan diverifikasi. Terima kasih!`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -576,7 +741,7 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                 </a>
 
                 <p className="text-[10px] text-neutral-500 text-center">
-                  Setelah scan QRIS atau transfer selesai, klik tombol konfirmasi di atas. Sistem kami otomatis memeriksa mutasi secara instan.
+                  Setelah scan QRIS atau transfer selesai, tekan tombol konfirmasi di atas. Pembayaran akan diverifikasi langsung oleh Admin sebelum kredensial diserahkan.
                 </p>
               </div>
             </div>

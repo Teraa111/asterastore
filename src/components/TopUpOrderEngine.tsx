@@ -230,8 +230,8 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
         {
           timestamp: new Date().toLocaleTimeString('id-ID'),
           message: isAccountProduct
-            ? `Invoice ${orderId} dibuat. Menunggu pembayaran via ${selectedPayment.name}. Data akun akan tampil langsung di website setelah lunas.`
-            : `Invoice ${orderId} dibuat. Menunggu pembayaran via ${selectedPayment.name} untuk konversi BB Coin ke Diamond.`,
+            ? `Invoice ${orderId} dibuat. Menunggu pembayaran via ${selectedPayment.name}. Data akun akan diserahkan setelah pembayaran diverifikasi oleh Admin.`
+            : `Invoice ${orderId} dibuat. Menunggu pembayaran via ${selectedPayment.name}. Diamond akan dikirimkan setelah pembayaran diverifikasi oleh Admin.`,
         },
       ],
     };

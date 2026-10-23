@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Order } from '../types/store';
-import { loadOrders } from '../utils/storage';
+import { loadOrders, getOrderStatusDetails } from '../utils/storage';
 import { formatIDR } from '../utils/currency';
 import {
   X,
@@ -124,21 +124,14 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
                   </button>
                 </div>
 
-                {ord.status === 'SUCCESS' && (
-                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-900 px-2 py-0.5 rounded">
-                    SUKSES
-                  </span>
-                )}
-                {ord.status === 'PENDING_PAYMENT' && (
-                  <span className="text-[11px] font-bold text-red-400 bg-red-950/70 border border-red-900 px-2 py-0.5 rounded">
-                    MENUNGGU PEMBAYARAN
-                  </span>
-                )}
-                {ord.status === 'PROCESSING' && (
-                  <span className="text-[11px] font-bold text-blue-400 bg-blue-950/70 border border-blue-900 px-2 py-0.5 rounded">
-                    DIPROSES
-                  </span>
-                )}
+                {(() => {
+                  const details = getOrderStatusDetails(ord.status);
+                  return (
+                    <span className={`text-[11px] font-bold border px-2 py-0.5 rounded ${details.badgeClass}`}>
+                      {details.label}
+                    </span>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-neutral-800/80 my-2">

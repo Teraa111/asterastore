@@ -2,7 +2,14 @@ export type ProductType = 'advance_account' | 'bbcoin_diamond';
 
 export type StockType = 'auto_inject' | 'account_pool';
 
-export type OrderStatus = 'PENDING_PAYMENT' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+export type OrderStatus =
+  | 'PENDING_PAYMENT'       // Menunggu Pembayaran
+  | 'WAITING_VERIFICATION' // Menunggu Verifikasi Admin
+  | 'PROCESSING'           // Sedang Diproses
+  | 'SUCCESS'              // Lunas
+  | 'EXPIRED'              // Kedaluwarsa
+  | 'CANCELLED'            // Dibatalkan
+  | 'FAILED';
 
 export interface AccountCredential {
   id: string;
@@ -111,6 +118,8 @@ export interface Order {
   status: OrderStatus;
   paidAt?: string;
   completedAt?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
   serialNumberDelivery?: string;
   virtualAccount?: string;
 

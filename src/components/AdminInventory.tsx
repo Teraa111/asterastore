@@ -8,6 +8,10 @@ import {
   loadPromos,
   savePromos,
   calculateMetrics,
+  adminVerifyAndFulfillOrder,
+  adminMarkOrderExpired,
+  adminCancelOrder,
+  getOrderStatusDetails,
   triggerAutomaticFulfillment,
   getAdminPin,
   setAdminPin,
@@ -168,6 +172,52 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
   const bbCoinProduct = useMemo(() => {
     return products.find((p) => p.type === 'bbcoin_diamond');
   }, [products]);
+
+  // Count orders waiting verification
+  const waitingVerificationCount = useMemo(() => {
+    return orders.filter((o) => o.status === 'WAITING_VERIFICATION').length;
+  }, [orders]);
+
+  // Admin verifies payment after checking real DANA / bank mutations
+  const handleAdminVerifyOrder = (orderId: string) => {
+    const res = adminVerifyAndFulfillOrder(orderId, 'Admin ASTERA STORE');
+    if (res.success) {
+      showToast(res.message, 'success');
+      refreshData();
+      if (selectedOrderDetails?.id === orderId && res.order) {
+        setSelectedOrderDetails(res.order);
+      }
+    } else {
+      showToast(res.message, 'warning');
+    }
+  };
+
+  // Admin marks order as expired
+  const handleAdminMarkExpired = (orderId: string) => {
+    if (!window.confirm(`Tandai pesanan ${orderId} sebagai Kedaluwarsa?`)) return;
+    const res = adminMarkOrderExpired(orderId);
+    if (res) {
+      showToast(`Pesanan ${orderId} ditandai Kedaluwarsa.`, 'warning');
+      refreshData();
+      if (selectedOrderDetails?.id === orderId) {
+        setSelectedOrderDetails(res);
+      }
+    }
+  };
+
+  // Admin cancels order
+  const handleAdminCancelOrder = (orderId: string) => {
+    const reason = window.prompt(`Masukkan alasan pembatalan pesanan ${orderId}:`, 'Dana tidak masuk / Fraud');
+    if (reason === null) return;
+    const res = adminCancelOrder(orderId, reason);
+    if (res) {
+      showToast(`Pesanan ${orderId} berhasil dibatalkan.`, 'warning');
+      refreshData();
+      if (selectedOrderDetails?.id === orderId) {
+        setSelectedOrderDetails(res);
+      }
+    }
+  };
 
   // Filtered orders list
   const filteredOrders = useMemo(() => {
@@ -874,7 +924,12 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
           }`}
         >
           <ShoppingBag className="w-4 h-4" />
-          <span>Semua Pesanan & Riwayat Kirim ({orders.length})</span>
+          <span>Semua Pesanan ({orders.length})</span>
+          {waitingVerificationCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-black animate-pulse shadow-sm">
+              {waitingVerificationCount} Perlu Verifikasi
+            </span>
+          )}
         </button>
 
         <button
@@ -1436,15 +1491,27 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                 onChange={(e) => setOrderStatusFilter(e.target.value)}
                 className="bg-neutral-950 border border-neutral-700 text-white text-xs rounded-xl px-3 py-2"
               >
-                <option value="all">Semua Status</option>
-                <option value="PENDING_PAYMENT">Menunggu Bayar</option>
-                <option value="PROCESSING">Diproses</option>
-                <option value="SUCCESS">Sukses Terkirim</option>
+                <option value="all">Semua Status ({orders.length})</option>
+                <option value="WAITING_VERIFICATION">
+                  🟡 Menunggu Verifikasi Admin ({orders.filter(o => o.status === 'WAITING_VERIFICATION').length})
+                </option>
+                <option value="PENDING_PAYMENT">
+                  ⚪ Menunggu Pembayaran ({orders.filter(o => o.status === 'PENDING_PAYMENT').length})
+                </option>
+                <option value="SUCCESS">
+                  🟢 Lunas ({orders.filter(o => o.status === 'SUCCESS').length})
+                </option>
+                <option value="EXPIRED">
+                  🔴 Kedaluwarsa ({orders.filter(o => o.status === 'EXPIRED').length})
+                </option>
+                <option value="CANCELLED">
+                  ⛔ Dibatalkan ({orders.filter(o => o.status === 'CANCELLED').length})
+                </option>
               </select>
             </div>
 
             <span className="text-xs text-neutral-400">
-              Total {filteredOrders.length} transaksi
+              Total {filteredOrders.length} transaksi ditampilkan
             </span>
           </div>
 
@@ -1457,69 +1524,68 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   <th className="py-3 px-4">Paket</th>
                   <th className="py-3 px-4">Penerima / Akun</th>
                   <th className="py-3 px-4">Total</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Aksi</th>
+                  <th className="py-3 px-4">Status Transaksi</th>
+                  <th className="py-3 px-4 text-right">Aksi Admin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/60 text-neutral-300">
-                {filteredOrders.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-neutral-950/40">
-                    <td className="py-3 px-4 font-mono font-bold text-blue-400">{ord.id}</td>
-                    <td className="py-3 px-4">
-                      {ord.productType === 'advance_account' ? (
-                        <span className="text-[10px] bg-blue-950 text-blue-400 border border-blue-900 px-2 py-0.5 rounded font-bold">
-                          AKUN ADVANCE
-                        </span>
-                      ) : (
-                        <span className="text-[10px] bg-red-950 text-red-400 border border-red-900 px-2 py-0.5 rounded font-bold">
-                          TOP UP BB COIN
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-white">{ord.itemName}</td>
-                    <td className="py-3 px-4 font-mono text-[11px]">
-                      {ord.accountDelivered ? (
-                        <span className="text-emerald-400 block">{ord.accountDelivered.email}</span>
-                      ) : (
-                        <span className="text-white block">{ord.userId} ({ord.zoneId})</span>
-                      )}
-                      <span className="text-neutral-500">WA: {ord.whatsapp}</span>
-                    </td>
-                    <td className="py-3 px-4 font-mono font-bold text-white tabular-nums">
-                      {formatIDR(ord.totalAmount)}
-                    </td>
-                    <td className="py-3 px-4">
-                      {ord.status === 'SUCCESS' && (
-                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-900 px-2 py-0.5 rounded">
-                          SUKSES
-                        </span>
-                      )}
-                      {ord.status === 'PENDING_PAYMENT' && (
-                        <span className="text-[11px] font-bold text-red-400 bg-red-950/70 border border-red-900 px-2 py-0.5 rounded">
-                          PENDING
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {ord.status === 'PENDING_PAYMENT' && (
-                          <button
-                            onClick={() => triggerAutomaticFulfillment(ord.id)}
-                            className="px-2 py-1 bg-blue-900/60 hover:bg-blue-800 text-blue-200 text-[11px] rounded"
-                          >
-                            Set Lunas
-                          </button>
+                {filteredOrders.map((ord) => {
+                  const statusDetails = getOrderStatusDetails(ord.status);
+                  const canVerify = ord.status === 'WAITING_VERIFICATION' || ord.status === 'PENDING_PAYMENT';
+                  return (
+                    <tr key={ord.id} className="hover:bg-neutral-950/40">
+                      <td className="py-3 px-4 font-mono font-bold text-blue-400">{ord.id}</td>
+                      <td className="py-3 px-4">
+                        {ord.productType === 'advance_account' ? (
+                          <span className="text-[10px] bg-blue-950 text-blue-400 border border-blue-900 px-2 py-0.5 rounded font-bold">
+                            AKUN ADVANCE
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-red-950 text-red-400 border border-red-900 px-2 py-0.5 rounded font-bold">
+                            TOP UP BB COIN
+                          </span>
                         )}
-                        <button
-                          onClick={() => setSelectedOrderDetails(ord)}
-                          className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] rounded"
-                        >
-                          Lihat Detail
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-white">{ord.itemName}</td>
+                      <td className="py-3 px-4 font-mono text-[11px]">
+                        {ord.accountDelivered ? (
+                          <span className="text-emerald-400 block font-bold">{ord.accountDelivered.email}</span>
+                        ) : (
+                          <span className="text-white block">{ord.userId} ({ord.zoneId})</span>
+                        )}
+                        <span className="text-neutral-500">WA: {ord.whatsapp}</span>
+                      </td>
+                      <td className="py-3 px-4 font-mono font-bold text-white tabular-nums">
+                        {formatIDR(ord.totalAmount)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`text-[10px] font-bold border px-2 py-0.5 rounded inline-block ${statusDetails.badgeClass}`}>
+                          {statusDetails.label}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {canVerify && (
+                            <button
+                              onClick={() => handleAdminVerifyOrder(ord.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm shadow-emerald-600/30"
+                              title="Verifikasi dana masuk riil & kirim akun / Diamond"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Verifikasi & Lunaskan</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedOrderDetails(ord)}
+                            className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] rounded transition-colors"
+                          >
+                            Detail
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2821,16 +2887,76 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
             </div>
 
             <div className="space-y-4 text-xs">
+              <div className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+                <div>
+                  <span className="text-neutral-400 text-[11px] block">Status Saat Ini:</span>
+                  <span className={`text-[11px] font-bold border px-2 py-0.5 rounded inline-block mt-0.5 ${getOrderStatusDetails(selectedOrderDetails.status).badgeClass}`}>
+                    {getOrderStatusDetails(selectedOrderDetails.status).label}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-neutral-400 text-[11px] block">Total Transaksi:</span>
+                  <span className="text-blue-400 font-mono font-bold text-sm">{formatIDR(selectedOrderDetails.totalAmount)}</span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 p-3 bg-neutral-950 rounded-xl border border-neutral-800">
                 <div>
                   <span className="text-neutral-400 text-[11px] block">WhatsApp Pembeli:</span>
                   <span className="text-white font-mono">+62 {selectedOrderDetails.whatsapp}</span>
                 </div>
                 <div>
-                  <span className="text-neutral-400 text-[11px] block">Total Bayar:</span>
-                  <span className="text-blue-400 font-mono font-bold">{formatIDR(selectedOrderDetails.totalAmount)}</span>
+                  <span className="text-neutral-400 text-[11px] block">Metode Pembayaran:</span>
+                  <span className="text-white font-medium">{selectedOrderDetails.paymentMethodName}</span>
                 </div>
               </div>
+
+              {selectedOrderDetails.verifiedBy && (
+                <div className="p-2.5 bg-emerald-950/40 rounded-xl border border-emerald-900/60 text-emerald-300 text-[11px] flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Telah diverifikasi sah oleh <strong>{selectedOrderDetails.verifiedBy}</strong>
+                    {selectedOrderDetails.verifiedAt && ` pada ${new Date(selectedOrderDetails.verifiedAt).toLocaleString('id-ID')}`}
+                  </span>
+                </div>
+              )}
+
+              {/* Action Box if Order is NOT yet SUCCESS */}
+              {(selectedOrderDetails.status === 'WAITING_VERIFICATION' || selectedOrderDetails.status === 'PENDING_PAYMENT') && (
+                <div className="p-4 rounded-xl bg-blue-950/40 border border-blue-800/80 space-y-2.5">
+                  <div className="flex items-center gap-2 text-white font-bold text-xs">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Tindakan Verifikasi Mutasi Admin:</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-300 leading-relaxed">
+                    Pastikan Anda telah memeriksa mutasi riil di aplikasi DANA (+62 823-1208-8548). Klik tombol di bawah untuk melunaskan dan menyerahkan akun / Diamond ke pembeli:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleAdminVerifyOrder(selectedOrderDetails.id)}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Verifikasi Dana Masuk & Set Lunas</span>
+                  </button>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAdminMarkExpired(selectedOrderDetails.id)}
+                      className="flex-1 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] rounded-lg"
+                    >
+                      Tandai Kedaluwarsa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdminCancelOrder(selectedOrderDetails.id)}
+                      className="flex-1 py-1.5 bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 text-[11px] rounded-lg"
+                    >
+                      Batalkan Pesanan
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {selectedOrderDetails.accountDelivered && (
                 <div className="p-3.5 bg-blue-950/40 rounded-xl border border-blue-900/60 space-y-2">
