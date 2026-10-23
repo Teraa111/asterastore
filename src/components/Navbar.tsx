@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Wrench, FileSearch, Calculator, UserCheck, Coins, BookOpen, Lock, LogOut } from 'lucide-react';
+import { getStoreOperatingStatus } from '../utils/currency';
+import { getStoreAssets } from '../utils/storage';
 
 interface NavbarProps {
   currentView: 'store' | 'admin';
@@ -11,8 +13,6 @@ interface NavbarProps {
   onAdminLogout?: () => void;
 }
 
-import { getStoreOperatingStatus } from '../utils/currency';
-
 export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   isAdminAuthenticated,
@@ -23,6 +23,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   onAdminLogout,
 }) => {
   const storeStatus = getStoreOperatingStatus();
+  const [storeLogo, setStoreLogo] = useState<string | undefined>(getStoreAssets().storeLogoImg);
+
+  useEffect(() => {
+    const handleAssetsChange = () => {
+      setStoreLogo(getStoreAssets().storeLogoImg);
+    };
+    window.addEventListener('storeadv_assets_updated', handleAssetsChange);
+    return () => {
+      window.removeEventListener('storeadv_assets_updated', handleAssetsChange);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 w-full bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800">
@@ -36,9 +47,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
             className="flex items-center gap-2.5 text-left group shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-red-600 flex items-center justify-center font-black text-white text-sm tracking-wider shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform border border-blue-400/30">
-              AS
-            </div>
+            {storeLogo ? (
+              <div className="w-10 h-10 rounded-xl bg-neutral-900 border border-neutral-700 overflow-hidden flex items-center justify-center p-0.5 shadow-lg group-hover:scale-105 transition-transform">
+                <img src={storeLogo} alt="ASTERA STORE Logo" className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-red-600 flex items-center justify-center font-black text-white text-sm tracking-wider shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform border border-blue-400/30">
+                AS
+              </div>
+            )}
             <div className="flex flex-col">
               <span className="text-xl font-black tracking-tight text-white group-hover:text-blue-400 transition-colors whitespace-nowrap">
                 ASTERA <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-500">STORE</span>

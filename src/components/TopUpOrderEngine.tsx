@@ -3,6 +3,7 @@ import { ProductCatalog, DenominationItem, PaymentChannel, PromoCode, Order } fr
 import { PAYMENT_CHANNELS } from '../data/mockData';
 import { formatIDR, calculatePaymentFee, generateOrderId } from '../utils/currency';
 import { simulateCheckNickname, loadPromos, saveOrders, loadOrders, savePromos } from '../utils/storage';
+import { QrisLogo, GopayLogo, DanaLogo } from './PaymentLogos';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -765,12 +766,12 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-10 rounded-lg bg-white p-1 flex items-center justify-center font-bold text-xs text-neutral-900 shadow-sm">
-                          QRIS
+                        <div className="w-16 h-10 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 shadow-sm border border-neutral-300">
+                          <QrisLogo className="h-7 w-auto" />
                         </div>
                         <div>
                           <span className="text-sm font-bold text-white block">{channel.name}</span>
-                          <span className="text-[11px] text-neutral-400">Scan via m-Banking atau e-Wallet apapun</span>
+                          <span className="text-[11px] text-neutral-400">Scan via DANA, GoPay, OVO, atau m-Banking apapun</span>
                         </div>
                       </div>
                       <div className="text-right">
@@ -808,12 +809,12 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${
-                          channel.code === 'GOPAY'
-                            ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                        }`}>
-                          {channel.code}
+                        <div className="w-16 h-10 rounded-lg bg-neutral-900 border border-neutral-700/80 p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                          {channel.code === 'GOPAY' ? (
+                            <GopayLogo className="h-7 w-auto" />
+                          ) : (
+                            <DanaLogo className="h-7 w-auto" />
+                          )}
                         </div>
                         <div>
                           <span className="text-xs font-bold text-white block">{channel.name}</span>

@@ -1,11 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Clock, Zap, Headphones, Key, Coins, Lock } from 'lucide-react';
+import { QrisLogo, GopayLogo, DanaLogo } from './PaymentLogos';
+import { getStoreAssets } from '../utils/storage';
 
 interface FooterProps {
   onOpenAdminAuth?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
+  const [storeLogo, setStoreLogo] = useState<string | undefined>(getStoreAssets().storeLogoImg);
+
+  useEffect(() => {
+    const handleAssetsChange = () => {
+      setStoreLogo(getStoreAssets().storeLogoImg);
+    };
+    window.addEventListener('storeadv_assets_updated', handleAssetsChange);
+    return () => {
+      window.removeEventListener('storeadv_assets_updated', handleAssetsChange);
+    };
+  }, []);
   return (
     <footer className="w-full bg-neutral-950 border-t border-neutral-900 text-neutral-400 text-xs mt-20">
       {/* Trust Proposition Strip */}
@@ -60,9 +73,15 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-red-600 text-white flex items-center justify-center font-black text-xs">
-                AS
-              </div>
+              {storeLogo ? (
+                <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-700 overflow-hidden flex items-center justify-center p-0.5">
+                  <img src={storeLogo} alt="ASTERA STORE" className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-red-600 text-white flex items-center justify-center font-black text-xs">
+                  AS
+                </div>
+              )}
               <span className="text-base font-extrabold text-white tracking-tight">
                 ASTERA <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-500">STORE</span>
               </span>
@@ -78,13 +97,19 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
 
           <div>
             <p className="font-semibold text-white text-sm mb-3">Metode Pembayaran Resmi</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded text-neutral-200 font-mono text-[11px] font-bold text-red-400">QRIS (Semua E-Wallet & Bank)</span>
-              <span className="bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded text-neutral-200 font-mono text-[11px] font-bold text-emerald-400">GoPay</span>
-              <span className="bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded text-neutral-200 font-mono text-[11px] font-bold text-blue-400">DANA</span>
+            <div className="flex flex-wrap gap-2.5 items-center">
+              <div className="bg-white rounded-lg p-1 h-8 flex items-center shadow-sm">
+                <QrisLogo className="h-6 w-auto" />
+              </div>
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-1 h-8 flex items-center shadow-sm overflow-hidden">
+                <DanaLogo className="h-6 w-auto" />
+              </div>
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-1 h-8 flex items-center shadow-sm overflow-hidden">
+                <GopayLogo className="h-6 w-auto" />
+              </div>
             </div>
-            <p className="text-[11px] text-neutral-500 mt-2">
-              Pembayaran otomatis terverifikasi via QRIS dan E-Wallet tanpa perlu konfirmasi manual.
+            <p className="text-[11px] text-neutral-500 mt-2.5">
+              Pembayaran otomatis QRIS terhubung ke DANA Admin (+62 823-1208-8548).
             </p>
           </div>
 

@@ -14,6 +14,10 @@ import {
   getPaymentConfig,
   savePaymentConfig,
   AdminPaymentConfig,
+  getStoreAssets,
+  saveStoreAssets,
+  StoreAssetsConfig,
+  DEFAULT_STORE_ASSETS,
 } from '../utils/storage';
 import { formatIDR, formatNumber } from '../utils/currency';
 import { INITIAL_PRODUCTS, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
@@ -65,12 +69,19 @@ interface AdminInventoryProps {
 }
 
 export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBackToStore }) => {
-  const [activeTab, setActiveTab] = useState<'accounts' | 'bbcoin' | 'orders' | 'promos' | 'qris' | 'guide'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'bbcoin' | 'orders' | 'promos' | 'media' | 'qris' | 'guide'>('accounts');
 
   // Core data states
   const [products, setProducts] = useState<ProductCatalog[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
+
+  // Store Assets & Photos states
+  const [storeAssets, setStoreAssets] = useState<StoreAssetsConfig>(getStoreAssets());
+  const [heroInput, setHeroInput] = useState(storeAssets.heroBannerImg);
+  const [accountCoverInput, setAccountCoverInput] = useState(storeAssets.accountProductImg);
+  const [bbcoinCoverInput, setBbcoinCoverInput] = useState(storeAssets.bbcoinProductImg);
+  const [storeLogoInput, setStoreLogoInput] = useState(storeAssets.storeLogoImg || '');
 
   // Payment Config & DANA QRIS states
   const [paymentConfig, setPaymentConfig] = useState<AdminPaymentConfig>(getPaymentConfig());
@@ -646,6 +657,38 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
     showToast('Pengaturan Pembayaran & Barcode QRIS DANA Admin berhasil disimpan!', 'success');
   };
 
+  const handleAssetFileUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: string) => void,
+    fieldLabel: string
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Harap pilih file gambar yang valid (JPG / PNG / WEBP).', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setter(base64);
+      showToast(`Foto ${fieldLabel} berhasil dimuat! Klik "Simpan Semua Foto & Banner".`, 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveStoreAssets = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = saveStoreAssets({
+      heroBannerImg: heroInput.trim() || DEFAULT_STORE_ASSETS.heroBannerImg,
+      accountProductImg: accountCoverInput.trim() || DEFAULT_STORE_ASSETS.accountProductImg,
+      bbcoinProductImg: bbcoinCoverInput.trim() || DEFAULT_STORE_ASSETS.bbcoinProductImg,
+      storeLogoImg: storeLogoInput.trim(),
+    });
+    setStoreAssets(updated);
+    showToast('Semua Foto & Banner Toko ASTERA STORE berhasil disimpan & langsung tampil di website!', 'success');
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24">
       {/* Header */}
@@ -844,6 +887,18 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
         >
           <Ticket className="w-4 h-4" />
           <span>Kode Promo ({promos.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('media')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeTab === 'media'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4 text-purple-400" />
+          <span>Kelola Foto & Banner Toko</span>
         </button>
 
         <button
@@ -1796,6 +1851,367 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
               </div>
             </div>
           </section>
+        </div>
+      )}
+
+      {/* ================= TAB: KELOLA FOTO & BANNER TOKO ================= */}
+      {activeTab === 'media' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          {/* Header Banner */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-950/60 via-neutral-900 to-indigo-950/40 border border-purple-900/60 shadow-xl">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-black text-white shadow-md">
+                <ImageIcon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Kelola Foto, Banner Promo & Sampul Toko
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Ganti semua foto yang tampil di website ASTERA STORE secara instan (Upload File dari HP/PC atau URL Gambar).
+                </p>
+              </div>
+            </div>
+            <p className="text-neutral-300 text-xs sm:text-sm max-w-3xl leading-relaxed mt-2">
+              Semua perubahan foto akan tersimpan ke sistem database lokal dan otomatis memperbarui tampilan bagi setiap pembeli secara real-time. Anda bisa mengunggah foto dari HP / komputer atau menempelkan link gambar.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveStoreAssets} className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* Card 1: Banner Promo Hero Beranda */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <h3 className="font-bold text-white text-sm sm:text-base">
+                      1. Banner Promo Utama (Hero Banner)
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHeroInput(DEFAULT_STORE_ASSETS.heroBannerImg)}
+                    className="text-[11px] text-neutral-400 hover:text-purple-300 underline"
+                  >
+                    Reset Default
+                  </button>
+                </div>
+                <p className="text-neutral-400 text-xs leading-relaxed">
+                  Banner visual besar di bagian atas halaman beranda. Menampilkan promo Advance Server & diskon.
+                </p>
+
+                {/* Live Preview */}
+                <div className="relative aspect-[16/7] rounded-xl overflow-hidden border border-neutral-700 bg-neutral-950">
+                  {heroInput ? (
+                    <img
+                      src={heroInput}
+                      alt="Preview Hero Banner"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_STORE_ASSETS.heroBannerImg;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-neutral-500">
+                      Belum ada banner
+                    </div>
+                  )}
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur text-[10px] text-neutral-300 font-mono">
+                    Pratinjau Live Banner
+                  </span>
+                </div>
+
+                {/* Upload File */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Unggah dari Komputer / HP:
+                  </label>
+                  <label className="flex items-center justify-center gap-2 w-full p-2.5 rounded-xl border border-dashed border-neutral-700 hover:border-purple-500 bg-neutral-950/70 text-neutral-400 hover:text-purple-300 cursor-pointer transition-all text-xs font-medium">
+                    <Upload className="w-4 h-4" />
+                    <span>Pilih File Gambar Banner (PNG / JPG / WEBP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAssetFileUpload(e, setHeroInput, 'Banner Promo Utama')}
+                    />
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Atau Masukkan Tautan / Link URL Gambar:
+                  </label>
+                  <input
+                    type="text"
+                    value={heroInput}
+                    onChange={(e) => setHeroInput(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-purple-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Card 2: Cover Sampul Akun Advance Server */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-4 h-4 text-blue-400" />
+                    <h3 className="font-bold text-white text-sm sm:text-base">
+                      2. Sampul Produk: Akun Advance Server
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAccountCoverInput(DEFAULT_STORE_ASSETS.accountProductImg)}
+                    className="text-[11px] text-neutral-400 hover:text-blue-300 underline"
+                  >
+                    Reset Default
+                  </button>
+                </div>
+                <p className="text-neutral-400 text-xs leading-relaxed">
+                  Foto cover thumbnail produk akun Advance Server di beranda dan halaman pemilihan paket akun.
+                </p>
+
+                {/* Live Preview */}
+                <div className="relative aspect-[16/9] max-h-48 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-950">
+                  {accountCoverInput ? (
+                    <img
+                      src={accountCoverInput}
+                      alt="Preview Sampul Akun Advance"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_STORE_ASSETS.accountProductImg;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-neutral-500">
+                      Belum ada foto sampul
+                    </div>
+                  )}
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur text-[10px] text-neutral-300 font-mono">
+                    Pratinjau Sampul Akun
+                  </span>
+                </div>
+
+                {/* Upload File */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Unggah dari Komputer / HP:
+                  </label>
+                  <label className="flex items-center justify-center gap-2 w-full p-2.5 rounded-xl border border-dashed border-neutral-700 hover:border-blue-500 bg-neutral-950/70 text-neutral-400 hover:text-blue-300 cursor-pointer transition-all text-xs font-medium">
+                    <Upload className="w-4 h-4" />
+                    <span>Pilih File Gambar Sampul Akun (PNG / JPG / WEBP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAssetFileUpload(e, setAccountCoverInput, 'Sampul Akun Advance Server')}
+                    />
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Atau Masukkan Tautan / Link URL Gambar:
+                  </label>
+                  <input
+                    type="text"
+                    value={accountCoverInput}
+                    onChange={(e) => setAccountCoverInput(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Card 3: Cover Sampul BB Coin & Diamond */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-amber-400" />
+                    <h3 className="font-bold text-white text-sm sm:text-base">
+                      3. Sampul Produk: BB Coin & Diamond
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBbcoinCoverInput(DEFAULT_STORE_ASSETS.bbcoinProductImg)}
+                    className="text-[11px] text-neutral-400 hover:text-amber-300 underline"
+                  >
+                    Reset Default
+                  </button>
+                </div>
+                <p className="text-neutral-400 text-xs leading-relaxed">
+                  Foto cover thumbnail produk konversi BB Coin dan Top Up Diamond di beranda dan formulir order.
+                </p>
+
+                {/* Live Preview */}
+                <div className="relative aspect-[16/9] max-h-48 rounded-xl overflow-hidden border border-neutral-700 bg-neutral-950">
+                  {bbcoinCoverInput ? (
+                    <img
+                      src={bbcoinCoverInput}
+                      alt="Preview Sampul BB Coin"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_STORE_ASSETS.bbcoinProductImg;
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-neutral-500">
+                      Belum ada foto sampul
+                    </div>
+                  )}
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur text-[10px] text-neutral-300 font-mono">
+                    Pratinjau Sampul BB Coin
+                  </span>
+                </div>
+
+                {/* Upload File */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Unggah dari Komputer / HP:
+                  </label>
+                  <label className="flex items-center justify-center gap-2 w-full p-2.5 rounded-xl border border-dashed border-neutral-700 hover:border-amber-500 bg-neutral-950/70 text-neutral-400 hover:text-amber-300 cursor-pointer transition-all text-xs font-medium">
+                    <Upload className="w-4 h-4" />
+                    <span>Pilih File Gambar BB Coin (PNG / JPG / WEBP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAssetFileUpload(e, setBbcoinCoverInput, 'Sampul BB Coin & Diamond')}
+                    />
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Atau Masukkan Tautan / Link URL Gambar:
+                  </label>
+                  <input
+                    type="text"
+                    value={bbcoinCoverInput}
+                    onChange={(e) => setBbcoinCoverInput(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Card 4: Logo / Avatar Toko */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-emerald-400" />
+                    <h3 className="font-bold text-white text-sm sm:text-base">
+                      4. Logo & Avatar Toko ASTERA STORE
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStoreLogoInput('')}
+                    className="text-[11px] text-neutral-400 hover:text-emerald-300 underline"
+                  >
+                    Hapus / Gunakan Ikon Default
+                  </button>
+                </div>
+                <p className="text-neutral-400 text-xs leading-relaxed">
+                  Logo toko yang tampil di navigasi atas dan footer. Jika kosong, sistem menggunakan lambang monogram resmi ASTERA STORE.
+                </p>
+
+                {/* Live Preview */}
+                <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-700 bg-neutral-950">
+                  <div className="w-16 h-16 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center overflow-hidden shrink-0">
+                    {storeLogoInput ? (
+                      <img
+                        src={storeLogoInput}
+                        alt="Logo Toko"
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-white text-xl">
+                        A
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white text-sm">ASTERA STORE</h4>
+                    <p className="text-[11px] text-neutral-400">
+                      {storeLogoInput ? 'Menggunakan Logo Gambar Kustom' : 'Menggunakan Monogram Lambang Bawaan'}
+                    </p>
+                    <span className="inline-block mt-1 text-[10px] text-emerald-400 font-medium">
+                      Aktif di Header & Footer Toko
+                    </span>
+                  </div>
+                </div>
+
+                {/* Upload File */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Unggah Logo dari Komputer / HP:
+                  </label>
+                  <label className="flex items-center justify-center gap-2 w-full p-2.5 rounded-xl border border-dashed border-neutral-700 hover:border-emerald-500 bg-neutral-950/70 text-neutral-400 hover:text-emerald-300 cursor-pointer transition-all text-xs font-medium">
+                    <Upload className="w-4 h-4" />
+                    <span>Pilih File Logo (PNG Transparan / WEBP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAssetFileUpload(e, setStoreLogoInput, 'Logo Toko')}
+                    />
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Atau Masukkan Tautan / Link URL Logo:
+                  </label>
+                  <input
+                    type="text"
+                    value={storeLogoInput}
+                    onChange={(e) => setStoreLogoInput(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Save Buttons Bar */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="text-xs text-neutral-400">
+                💡 <strong className="text-white">Tips Admin:</strong> Klik tombol simpan di bawah untuk mengaplikasikan semua foto & banner secara permanen ke website.
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHeroInput(DEFAULT_STORE_ASSETS.heroBannerImg);
+                    setAccountCoverInput(DEFAULT_STORE_ASSETS.accountProductImg);
+                    setBbcoinCoverInput(DEFAULT_STORE_ASSETS.bbcoinProductImg);
+                    setStoreLogoInput('');
+                    showToast('Semua input dikembalikan ke foto bawaan. Klik Simpan untuk konfirmasi.', 'warning');
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                >
+                  Reset Semua
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white shadow-lg shadow-purple-600/30 transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Simpan Semua Foto & Banner Toko</span>
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { ProductCatalog, Order, PromoCode, StoreMetrics, AccountCredential } from '../types/store';
-import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES } from '../data/mockData';
+import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import { generateSerialNumber } from './currency';
 
 const STORAGE_KEYS = {
@@ -356,4 +356,60 @@ export function savePaymentConfig(config: Partial<AdminPaymentConfig>): AdminPay
     return DEFAULT_PAYMENT_CONFIG;
   }
 }
+
+// ==========================================
+// STORE ASSETS & CUSTOM PHOTOS (HERO & PRODUCTS)
+// ==========================================
+export interface StoreAssetsConfig {
+  heroBannerImg: string;
+  accountProductImg: string;
+  bbcoinProductImg: string;
+  storeLogoImg?: string;
+}
+
+export const DEFAULT_STORE_ASSETS: StoreAssetsConfig = {
+  heroBannerImg: HERO_PROMO_IMG,
+  accountProductImg: MLBB_COVER_IMG,
+  bbcoinProductImg: HERO_PROMO_IMG,
+  storeLogoImg: '',
+};
+
+const STORE_ASSETS_KEY = 'storeadv_assets_config_v2';
+
+export function getStoreAssets(): StoreAssetsConfig {
+  try {
+    const raw = localStorage.getItem(STORE_ASSETS_KEY);
+    if (!raw) return DEFAULT_STORE_ASSETS;
+    return { ...DEFAULT_STORE_ASSETS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_STORE_ASSETS;
+  }
+}
+
+export function saveStoreAssets(assets: Partial<StoreAssetsConfig>): StoreAssetsConfig {
+  try {
+    const current = getStoreAssets();
+    const updated = { ...current, ...assets };
+    localStorage.setItem(STORE_ASSETS_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('storeadv_assets_updated'));
+
+    // Also keep product catalog coverImage in sync
+    const products = loadProducts();
+    const updatedProducts = products.map((p) => {
+      if (p.id === 'mlbb-advance-server' && updated.accountProductImg) {
+        return { ...p, coverImage: updated.accountProductImg };
+      }
+      if (p.id === 'mlbb-bbcoin' && updated.bbcoinProductImg) {
+        return { ...p, coverImage: updated.bbcoinProductImg };
+      }
+      return p;
+    });
+    saveProducts(updatedProducts);
+
+    return updated;
+  } catch {
+    return DEFAULT_STORE_ASSETS;
+  }
+}
+
 

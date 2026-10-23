@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, ShieldCheck, Zap, UserCheck, Coins, Key } from 'lucide-react';
-import { HERO_PROMO_IMG } from '../data/mockData';
+import { getStoreAssets } from '../utils/storage';
 
 interface HeroBannerProps {
   onSelectProduct: (productId: 'mlbb-advance-server' | 'mlbb-bbcoin') => void;
@@ -11,15 +11,25 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onSelectProduct,
   onQuickTrack,
 }) => {
+  const [heroImg, setHeroImg] = useState<string>(getStoreAssets().heroBannerImg);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setHeroImg(getStoreAssets().heroBannerImg);
+    };
+    window.addEventListener('storeadv_assets_updated', handleUpdate);
+    return () => window.removeEventListener('storeadv_assets_updated', handleUpdate);
+  }, []);
+
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 mb-10 shadow-2xl">
       {/* Background Hero Image with Measured Scrim */}
       <div className="absolute inset-0 z-0">
         <img
-          src={HERO_PROMO_IMG}
+          src={heroImg}
           alt="ASTERA STORE Mobile Legends"
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center brightness-35"
+          className="w-full h-full object-cover object-center brightness-35 transition-all duration-300"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/75 to-neutral-950/40" />
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/95 via-neutral-950/75 to-transparent" />

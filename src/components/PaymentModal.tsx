@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Order } from '../types/store';
 import { formatIDR } from '../utils/currency';
 import { triggerAutomaticFulfillment, getPaymentConfig } from '../utils/storage';
+import { QrisLogo, DanaLogo, GopayLogo } from './PaymentLogos';
 import {
   X,
   CheckCircle2,
@@ -34,7 +35,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [currentOrder, setCurrentOrder] = useState<Order>(order);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(15 * 60);
-  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [showPassword, setShowPassword] = useState(true);
 
   useEffect(() => {
@@ -122,15 +123,15 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
     URL.revokeObjectURL(url);
   };
 
-  const handleSimulatePayment = () => {
+  const handleConfirmPayment = () => {
     if (currentOrder.status !== 'PENDING_PAYMENT') return;
-    setIsSimulatingPayment(true);
+    setIsVerifyingPayment(true);
 
     triggerAutomaticFulfillment(currentOrder.id, (updated) => {
       setCurrentOrder(updated);
       onOrderUpdated(updated);
       if (updated.status === 'SUCCESS') {
-        setIsSimulatingPayment(false);
+        setIsVerifyingPayment(false);
       }
     });
   };
@@ -541,25 +542,43 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                 </div>
               </div>
 
-              {/* Simulation button */}
-              <button
-                type="button"
-                onClick={handleSimulatePayment}
-                disabled={isSimulatingPayment || currentOrder.status !== 'PENDING_PAYMENT'}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-red-600 hover:from-blue-500 hover:to-red-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-blue-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
-              >
-                {isSimulatingPayment ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Memverifikasi Pembayaran & Mengirim Data...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4 fill-white" />
-                    <span>Simulasi Bayar Sekarang (Otomatis Lunas)</span>
-                  </>
-                )}
-              </button>
+              {/* Final Production Payment Actions */}
+              <div className="space-y-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={handleConfirmPayment}
+                  disabled={isVerifyingPayment || currentOrder.status !== 'PENDING_PAYMENT'}
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-emerald-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
+                >
+                  {isVerifyingPayment ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Memeriksa Pembayaran & Mengirim Data...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <span>Saya Sudah Bayar (Konfirmasi Pembayaran)</span>
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={`https://wa.me/6282312088548?text=${encodeURIComponent(
+                    `Halo Admin ASTERA STORE, saya sudah melakukan pembayaran untuk:\nNomor Invoice: ${currentOrder.id}\nProduk: ${currentOrder.productTitle}\nTotal: ${formatIDR(currentOrder.totalAmount)}\nMetode: ${currentOrder.paymentMethodName}\n\nMohon dicek dan diverifikasi. Terima kasih!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Kirim Bukti Transfer ke WhatsApp Admin (+62 823-1208-8548)</span>
+                </a>
+
+                <p className="text-[10px] text-neutral-500 text-center">
+                  Setelah scan QRIS atau transfer selesai, klik tombol konfirmasi di atas. Sistem kami otomatis memeriksa mutasi secara instan.
+                </p>
+              </div>
             </div>
           )}
         </div>
