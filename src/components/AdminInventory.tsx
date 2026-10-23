@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ProductCatalog, Order, PromoCode, DenominationItem, AccountCredential } from '../types/store';
-import { loadProducts, saveProducts, loadOrders, saveOrders, loadPromos, savePromos, calculateMetrics, triggerAutomaticFulfillment, getAdminPin, setAdminPin } from '../utils/storage';
+import {
+  loadProducts,
+  saveProducts,
+  loadOrders,
+  saveOrders,
+  loadPromos,
+  savePromos,
+  calculateMetrics,
+  triggerAutomaticFulfillment,
+  getAdminPin,
+  setAdminPin,
+  getPaymentConfig,
+  savePaymentConfig,
+  AdminPaymentConfig,
+} from '../utils/storage';
 import { formatIDR, formatNumber } from '../utils/currency';
 import { INITIAL_PRODUCTS, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import {
@@ -40,6 +54,9 @@ import {
   Palette,
   ImageIcon,
   Sparkles,
+  QrCode,
+  Smartphone,
+  Upload,
 } from 'lucide-react';
 
 interface AdminInventoryProps {
@@ -48,12 +65,20 @@ interface AdminInventoryProps {
 }
 
 export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBackToStore }) => {
-  const [activeTab, setActiveTab] = useState<'accounts' | 'bbcoin' | 'orders' | 'promos' | 'guide'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'bbcoin' | 'orders' | 'promos' | 'qris' | 'guide'>('accounts');
 
   // Core data states
   const [products, setProducts] = useState<ProductCatalog[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
+
+  // Payment Config & DANA QRIS states
+  const [paymentConfig, setPaymentConfig] = useState<AdminPaymentConfig>(getPaymentConfig());
+  const [qrisImageInput, setQrisImageInput] = useState(paymentConfig.qrisCustomImageUrl || '');
+  const [danaNumberInput, setDanaNumberInput] = useState(paymentConfig.danaNumber);
+  const [danaNameInput, setDanaNameInput] = useState(paymentConfig.danaAccountName);
+  const [adminPhoneInput, setAdminPhoneInput] = useState(paymentConfig.adminPhone);
+  const [qrisNmidInput, setQrisNmidInput] = useState(paymentConfig.qrisNmid);
 
   // Filtering & Search
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
@@ -591,6 +616,36 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
     }
   };
 
+  const handleQrisFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Harap pilih file gambar (JPG / PNG / WEBP).', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setQrisImageInput(base64);
+      showToast('Gambar QRIS DANA Bisnis berhasil dimuat! Klik "Simpan Pengaturan".', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSavePaymentConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = savePaymentConfig({
+      danaNumber: danaNumberInput.trim() || '0823-1208-8548',
+      danaAccountName: danaNameInput.trim() || 'ASTERA STORE',
+      adminPhone: adminPhoneInput.trim() || '+62 823-1208-8548',
+      adminWhatsappUrl: `https://wa.me/${adminPhoneInput.replace(/[^0-9]/g, '')}`,
+      qrisNmid: qrisNmidInput.trim() || 'ID99281726481 (DANA BISNIS ASTERA STORE)',
+      qrisCustomImageUrl: qrisImageInput.trim(),
+    });
+    setPaymentConfig(updated);
+    showToast('Pengaturan Pembayaran & Barcode QRIS DANA Admin berhasil disimpan!', 'success');
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24">
       {/* Header */}
@@ -789,6 +844,18 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
         >
           <Ticket className="w-4 h-4" />
           <span>Kode Promo ({promos.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('qris')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            activeTab === 'qris'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <QrCode className="w-4 h-4 text-emerald-400" />
+          <span>QRIS & DANA Admin (+62 823-1208-8548)</span>
         </button>
 
         <button
@@ -1729,6 +1796,298 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
               </div>
             </div>
           </section>
+        </div>
+      )}
+
+      {/* ================= TAB: PENGATURAN QRIS & DANA ADMIN ================= */}
+      {activeTab === 'qris' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          {/* Header Banner */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-neutral-900 to-blue-950/40 border border-emerald-900/60 shadow-xl">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center font-black text-white shadow-md">
+                <QrCode className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Pengaturan QRIS & Rekening DANA Admin
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Nomor DANA & WhatsApp Admin: <strong className="text-emerald-400">+62 823-1208-8548</strong>
+                </p>
+              </div>
+            </div>
+            <p className="text-neutral-300 text-xs sm:text-sm max-w-3xl leading-relaxed mt-2">
+              Kelola Barcode QRIS DANA Bisnis dan nomor transfer e-wallet toko Anda. Setiap pembeli yang melakukan pembayaran via scan QRIS atau transfer DANA, dananya akan langsung masuk real-time ke akun DANA Anda.
+            </p>
+          </div>
+
+          {/* Guide Section: Cara Biar QRIS Langsung Masuk ke DANA Admin */}
+          <section className="p-6 rounded-2xl bg-neutral-900/90 border border-neutral-800">
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-neutral-800">
+              <div className="w-8 h-8 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                💡
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  Panduan: Cara Agar QRIS Langsung Masuk ke Saldo DANA Admin (Nomor 0823-1208-8548)
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Gunakan fitur resmi <strong>DANA Bisnis</strong> di aplikasi DANA untuk mendapatkan QRIS Bank Indonesia gratis.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800/80">
+                <div className="flex items-center gap-2 text-blue-400 font-bold mb-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center text-xs">1</span>
+                  <span>Daftar DANA Bisnis di HP</span>
+                </div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Buka aplikasi <strong>DANA</strong> dengan nomor <strong className="text-white">0823-1208-8548</strong>. Buka menu <strong>Saya (Profil)</strong> di pojok kanan bawah, lalu pilih menu <strong>DANA Bisnis</strong>. Klik <strong>Daftar Sekarang</strong> (100% Gratis).
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800/80">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold mb-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-600/30 text-emerald-400 flex items-center justify-center text-xs">2</span>
+                  <span>Ambil Barcode QRIS Toko</span>
+                </div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Isi nama bisnis <strong>ASTERA STORE</strong> dan kategori <strong>Voucher Game</strong>. Setelah aktif, buka menu <strong>Kode QR Toko Saya</strong>, lalu klik <strong>Unduh Gambar QRIS</strong> atau screenshot kode QR tersebut di HP Anda.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800/80">
+                <div className="flex items-center gap-2 text-amber-400 font-bold mb-2">
+                  <span className="w-5 h-5 rounded-full bg-amber-600/30 text-amber-400 flex items-center justify-center text-xs">3</span>
+                  <span>Upload di Panel Ini</span>
+                </div>
+                <p className="text-neutral-400 leading-relaxed">
+                  Upload file foto QRIS tersebut pada form di bawah ini. Kode QRIS website akan otomatis terhubung ke akun DANA Anda, dan setiap scan pembayaran dari bank/e-wallet manapun langsung masuk ke saldo DANA Anda!
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Form & Live Preview Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Form Column */}
+            <div className="lg:col-span-7 space-y-6">
+              <section className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800">
+                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span>Form Konfigurasi QRIS & DANA Admin</span>
+                </h3>
+
+                <form onSubmit={handleSavePaymentConfig} className="space-y-4 text-xs">
+                  {/* Nomor DANA Admin */}
+                  <div>
+                    <label className="block text-neutral-300 font-semibold mb-1">
+                      Nomor Akun DANA Admin (Penerima Transfer):
+                    </label>
+                    <input
+                      type="text"
+                      value={danaNumberInput}
+                      onChange={(e) => setDanaNumberInput(e.target.value)}
+                      placeholder="Contoh: 0823-1208-8548"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[11px] text-neutral-500 mt-1 block">
+                      Nomor ini yang ditampilkan ke pembeli saat memilih metode bayar DANA.
+                    </span>
+                  </div>
+
+                  {/* Nama Akun DANA */}
+                  <div>
+                    <label className="block text-neutral-300 font-semibold mb-1">
+                      Nama Akun / Toko DANA (a/n):
+                    </label>
+                    <input
+                      type="text"
+                      value={danaNameInput}
+                      onChange={(e) => setDanaNameInput(e.target.value)}
+                      placeholder="Contoh: ASTERA STORE / NAMA ADMIN"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-semibold focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* WhatsApp Admin */}
+                  <div>
+                    <label className="block text-neutral-300 font-semibold mb-1">
+                      Nomor WhatsApp Customer Service Admin:
+                    </label>
+                    <input
+                      type="text"
+                      value={adminPhoneInput}
+                      onChange={(e) => setAdminPhoneInput(e.target.value)}
+                      placeholder="Contoh: +62 823-1208-8548"
+                      className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[11px] text-neutral-500 mt-1 block">
+                      Tombol chat WhatsApp di seluruh website akan langsung mengarah ke nomor ini.
+                    </span>
+                  </div>
+
+                  {/* Upload QRIS Image */}
+                  <div className="pt-2 border-t border-neutral-800">
+                    <label className="block text-neutral-300 font-semibold mb-1">
+                      Upload Gambar / Foto Barcode QRIS DANA Bisnis:
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                      <label className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-xl cursor-pointer font-bold text-xs flex items-center gap-2 transition-colors">
+                        <Upload className="w-4 h-4 text-emerald-400" />
+                        <span>Pilih Foto QRIS DANA...</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleQrisFileChange}
+                          className="hidden"
+                        />
+                      </label>
+                      {qrisImageInput && (
+                        <button
+                          type="button"
+                          onClick={() => setQrisImageInput('')}
+                          className="text-xs text-red-400 hover:text-red-300 underline"
+                        >
+                          Hapus Gambar (Gunakan Barcode Default)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Atau Input URL QRIS */}
+                  <div>
+                    <label className="block text-neutral-400 mb-1">
+                      Atau URL Gambar QRIS (Opsional):
+                    </label>
+                    <input
+                      type="text"
+                      value={qrisImageInput.startsWith('data:') ? '' : qrisImageInput}
+                      onChange={(e) => setQrisImageInput(e.target.value)}
+                      placeholder="https://.../qris-dana-anda.png"
+                      className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* NMID / Label QRIS */}
+                  <div>
+                    <label className="block text-neutral-400 mb-1">
+                      NMID / Label Merchant QRIS:
+                    </label>
+                    <input
+                      type="text"
+                      value={qrisNmidInput}
+                      onChange={(e) => setQrisNmidInput(e.target.value)}
+                      placeholder="Contoh: ID99281726481 (DANA BISNIS ASTERA STORE)"
+                      className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-3">
+                    <button
+                      type="submit"
+                      className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-sm rounded-xl shadow-lg shadow-emerald-600/30 active:scale-98 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Simpan Pengaturan Pembayaran & QRIS DANA</span>
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+
+            {/* Live Preview Column */}
+            <div className="lg:col-span-5 space-y-4">
+              <section className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-blue-400" />
+                    <span>Live Preview di Layar Pembeli</span>
+                  </h3>
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/70 border border-emerald-800 px-2 py-0.5 rounded font-bold">
+                    ONLINE AKTIF
+                  </span>
+                </div>
+
+                {/* Preview Box */}
+                <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-4 text-xs">
+                  {/* QRIS Card Preview */}
+                  <div className="p-3 bg-white rounded-2xl shadow-lg border border-neutral-300 max-w-[210px] mx-auto text-center">
+                    <div className="border-b border-neutral-300 pb-1 mb-1.5">
+                      <span className="text-[10px] font-black tracking-wider text-neutral-900 block">
+                        QRIS DANA BISNIS RESMI
+                      </span>
+                      <span className="text-[8px] font-bold text-blue-600 block">
+                        {danaNameInput || 'ASTERA STORE'}
+                      </span>
+                    </div>
+
+                    {qrisImageInput ? (
+                      <div className="w-36 h-36 mx-auto bg-white flex items-center justify-center p-1 rounded border border-neutral-200">
+                        <img
+                          src={qrisImageInput}
+                          alt="Preview QRIS DANA"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-36 h-36 mx-auto bg-neutral-950 p-1.5 rounded grid grid-cols-7 gap-1">
+                        <div className="bg-white rounded-xs p-1 flex items-center justify-center col-span-2 row-span-2">
+                          <div className="w-3 h-3 bg-neutral-950 rounded-xs" />
+                        </div>
+                        <div className="bg-white rounded-xs col-span-3" />
+                        <div className="bg-white rounded-xs p-1 flex items-center justify-center col-span-2 row-span-2">
+                          <div className="w-3 h-3 bg-neutral-950 rounded-xs" />
+                        </div>
+                        <div className="bg-white rounded-xs col-span-3" />
+                        <div className="bg-blue-600 col-span-1 flex items-center justify-center font-bold text-[8px] text-white">
+                          DANA
+                        </div>
+                        <div className="bg-white rounded-xs col-span-2" />
+                        <div className="bg-white rounded-xs p-1 flex items-center justify-center col-span-2 row-span-2">
+                          <div className="w-3 h-3 bg-neutral-950 rounded-xs" />
+                        </div>
+                        <div className="bg-white rounded-xs col-span-5" />
+                      </div>
+                    )}
+
+                    <div className="pt-1.5 mt-1 border-t border-neutral-200 text-[8px] text-neutral-600 font-mono">
+                      {qrisNmidInput || 'ID99281726481 (DANA BISNIS ASTERA STORE)'}
+                    </div>
+                  </div>
+
+                  {/* Transfer DANA Preview */}
+                  <div className="p-3 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <span className="text-[11px] text-neutral-400 block mb-0.5">Transfer Langsung DANA:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-white text-sm">
+                        {danaNumberInput || '0823-1208-8548'}
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-semibold">
+                        a/n {danaNameInput || 'ASTERA STORE'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Admin Test Link */}
+                  <div className="pt-1">
+                    <a
+                      href={`https://wa.me/${adminPhoneInput.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800 text-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <span>Tes Link CS WhatsApp (+62 823-1208-8548)</span>
+                    </a>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       )}
 

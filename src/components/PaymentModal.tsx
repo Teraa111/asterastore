@@ -30,6 +30,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   onOrderUpdated,
 }) => {
+  const paymentConfig = getPaymentConfig();
   const [currentOrder, setCurrentOrder] = useState<Order>(order);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(15 * 60);
@@ -107,7 +108,7 @@ PANDUAN LOGIN & MASUK SERVER ADVANCE:
 7. Sangat disarankan untuk langsung mengganti password Moonton demi kenyamanan privasi Anda.
 
 Garansi: 100% Anti-Hackback & Dukungan CS 09:00 - 22:00 WIB.
-Customer Support WhatsApp ASTERA STORE: 0812-3456-7890
+Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
 =====================================================`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -416,37 +417,57 @@ Customer Support WhatsApp ASTERA STORE: 0812-3456-7890
               {/* QRIS Channel View */}
               {isQris && (
                 <div className="flex flex-col items-center">
-                  <div className="p-3 bg-white rounded-2xl shadow-lg border border-neutral-700 max-w-[210px] w-full aspect-square flex flex-col items-center justify-between relative">
-                    <div className="w-full h-full bg-white flex flex-col items-center justify-between p-1">
-                      <div className="w-full text-center border-b border-black pb-1 mb-1">
-                        <span className="text-[10px] font-black tracking-widest text-black">QRIS ASTERA STORE</span>
+                  <div className="p-3 bg-white rounded-2xl shadow-xl border border-neutral-700 max-w-[230px] w-full flex flex-col items-center justify-between relative">
+                    <div className="w-full text-center border-b border-neutral-300 pb-1.5 mb-2">
+                      <span className="text-[11px] font-black tracking-wider text-neutral-900 block">
+                        QRIS DANA BISNIS RESMI
+                      </span>
+                      <span className="text-[9px] font-bold text-blue-600 block">
+                        {paymentConfig.qrisMerchantName}
+                      </span>
+                    </div>
+
+                    {paymentConfig.qrisCustomImageUrl ? (
+                      <div className="w-48 h-48 bg-white flex items-center justify-center p-1 rounded-lg border border-neutral-200">
+                        <img
+                          src={paymentConfig.qrisCustomImageUrl}
+                          alt="QRIS DANA Bisnis Admin"
+                          className="w-full h-full object-contain"
+                        />
                       </div>
-                      <div className="w-36 h-36 bg-black p-1 rounded grid grid-cols-7 gap-1">
+                    ) : (
+                      <div className="w-40 h-40 bg-neutral-950 p-1.5 rounded-lg grid grid-cols-7 gap-1">
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
-                          <div className="w-4 h-4 bg-black rounded-xs" />
+                          <div className="w-4 h-4 bg-neutral-950 rounded-xs" />
                         </div>
                         <div className="bg-white rounded-sm col-span-3" />
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
-                          <div className="w-4 h-4 bg-black rounded-xs" />
+                          <div className="w-4 h-4 bg-neutral-950 rounded-xs" />
                         </div>
                         <div className="bg-white rounded-sm col-span-3" />
-                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-red-600 col-span-1 flex items-center justify-center font-black text-[9px] text-white">
-                          AS
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 col-span-1 flex items-center justify-center font-black text-[9px] text-white rounded">
+                          DANA
                         </div>
                         <div className="bg-white rounded-sm col-span-2" />
                         <div className="bg-white rounded-sm p-1 flex items-center justify-center col-span-2 row-span-2">
-                          <div className="w-4 h-4 bg-black rounded-xs" />
+                          <div className="w-4 h-4 bg-neutral-950 rounded-xs" />
                         </div>
                         <div className="bg-white rounded-sm col-span-5" />
                       </div>
-                      <div className="w-full text-center pt-1 text-[8px] text-black font-mono font-bold">
-                        NMID: ID99281726481 (ASTERA STORE)
+                    )}
+
+                    <div className="w-full text-center pt-2 mt-1 border-t border-neutral-200">
+                      <div className="text-[8px] text-neutral-600 font-mono font-bold">
+                        {paymentConfig.qrisNmid}
+                      </div>
+                      <div className="text-[9px] font-bold text-emerald-700 bg-emerald-50 rounded px-1 py-0.5 mt-0.5">
+                        Terkoneksi ke DANA: {paymentConfig.danaNumber}
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-xs text-neutral-400 text-center mt-3 max-w-xs">
-                    Scan via GoPay, DANA, BCA Mobile, atau aplikasi m-Banking/E-Wallet QRIS apapun.
+                  <p className="text-xs text-neutral-400 text-center mt-3 max-w-xs leading-relaxed">
+                    Scan via <strong>DANA</strong>, GoPay, OVO, ShopeePay, atau m-Banking apapun. Dana langsung masuk ke rekening DANA admin.
                   </p>
                 </div>
               )}
@@ -456,18 +477,20 @@ Customer Support WhatsApp ASTERA STORE: 0812-3456-7890
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800">
                     <span className="text-xs text-neutral-400 block mb-1">
-                      Nomor Akun Transfer E-Wallet ({currentOrder.paymentMethodName}):
+                      Nomor Akun Transfer DANA / E-Wallet ({currentOrder.paymentMethodName}):
                     </span>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
                         <span className="text-lg font-mono font-bold text-white tracking-wider select-all block">
-                          0812-3456-7890
+                          {paymentConfig.danaNumber}
                         </span>
-                        <span className="text-[11px] text-emerald-400 font-medium">a/n ASTERA STORE RESMI</span>
+                        <span className="text-[11px] text-emerald-400 font-semibold">
+                          a/n {paymentConfig.danaAccountName} (Admin Resmi)
+                        </span>
                       </div>
                       <button
-                        onClick={() => copyToClipboard('081234567890', 'ewallet')}
-                        className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs font-semibold rounded-lg flex items-center gap-1.5"
+                        onClick={() => copyToClipboard(paymentConfig.danaNumber.replace(/[^0-9]/g, ''), 'ewallet')}
+                        className="px-3.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/50 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shrink-0"
                       >
                         {copiedField === 'ewallet' ? (
                           <>
@@ -477,14 +500,32 @@ Customer Support WhatsApp ASTERA STORE: 0812-3456-7890
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5" />
-                            <span>Salin No HP</span>
+                            <span>Salin No DANA</span>
                           </>
                         )}
                       </button>
                     </div>
                   </div>
+
+                  <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-800/40 text-xs text-neutral-300 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-blue-300 font-semibold block">Butuh bantuan transaksi?</span>
+                      <span className="text-[11px] text-neutral-400">Hubungi langsung admin WhatsApp kami.</span>
+                    </div>
+                    <a
+                      href={`https://wa.me/6282312088548?text=${encodeURIComponent(
+                        `Halo Admin ASTERA STORE, saya ingin konfirmasi pembayaran pesanan ${currentOrder.id} (${formatIDR(currentOrder.totalAmount)}).`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Chat WhatsApp Admin
+                    </a>
+                  </div>
+
                   <p className="text-[11px] text-neutral-400 text-center">
-                    Buka aplikasi {currentOrder.paymentMethodName}, transfer tepat <strong>{formatIDR(currentOrder.totalAmount)}</strong> ke nomor di atas. Sistem mendeteksi pembayaran secara otomatis.
+                    Buka aplikasi {currentOrder.paymentMethodName}, transfer tepat <strong>{formatIDR(currentOrder.totalAmount)}</strong> ke nomor di atas.
                   </p>
                 </div>
               )}
