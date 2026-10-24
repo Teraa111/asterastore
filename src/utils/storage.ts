@@ -1,4 +1,4 @@
-import { ProductCatalog, Order, PromoCode, StoreMetrics, AccountCredential } from '../types/store';
+import { ProductCatalog, Order, OrderStatus, PromoCode, StoreMetrics, AccountCredential } from '../types/store';
 import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import { generateSerialNumber } from './currency';
 

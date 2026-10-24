@@ -50,8 +50,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
                 <Clock className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-semibold text-white text-sm">Pembayaran Otomatis</p>
-                <p className="text-neutral-500 mt-0.5">QRIS & E-Wallet (GoPay & DANA) terverifikasi instan tanpa antre.</p>
+                <p className="font-semibold text-white text-sm">Pembayaran Aman</p>
+                <p className="text-neutral-500 mt-0.5">QRIS & E-Wallet (GoPay & DANA Admin) dengan verifikasi aman & transparan.</p>
               </div>
             </div>
 
@@ -109,7 +109,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdminAuth }) => {
               </div>
             </div>
             <p className="text-[11px] text-neutral-500 mt-2.5">
-              Pembayaran otomatis QRIS terhubung ke DANA Admin (+62 823-1208-8548).
+              QRIS DANA Bisnis terhubung ke Admin (+62 823-1208-8548). Verifikasi via WhatsApp.
             </p>
           </div>
 
