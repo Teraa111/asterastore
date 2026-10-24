@@ -6,6 +6,7 @@ import {
   adminMarkOrderExpired,
   getOrderStatusDetails,
   loadOrders,
+  fetchOrdersFromServer,
   getPaymentConfig,
 } from '../utils/storage';
 import { QrisLogo, DanaLogo, GopayLogo } from './PaymentLogos';
@@ -55,16 +56,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     const handleOrdersChange = () => {
       const freshOrders = loadOrders();
       const match = freshOrders.find((o) => o.id === currentOrder.id);
-      if (match && match.status !== currentOrder.status) {
+      if (match && (match.status !== currentOrder.status || match.accountDelivered !== currentOrder.accountDelivered)) {
         setCurrentOrder(match);
         onOrderUpdated(match);
       }
     };
     window.addEventListener('storeadv_orders_updated', handleOrdersChange);
+
+    // Active polling from Firestore every 2.5s while invoice modal is open
+    const pollInterval = setInterval(() => {
+      fetchOrdersFromServer();
+    }, 2500);
+
     return () => {
+      clearInterval(pollInterval);
       window.removeEventListener('storeadv_orders_updated', handleOrdersChange);
     };
-  }, [currentOrder.id, currentOrder.status, onOrderUpdated]);
+  }, [currentOrder.id, currentOrder.status, currentOrder.accountDelivered, onOrderUpdated]);
 
   useEffect(() => {
     if (currentOrder.status !== 'PENDING_PAYMENT') return;

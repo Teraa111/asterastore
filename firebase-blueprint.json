@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Order transaction in ASTERA STORE",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Invoice ID AST-..." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "productType": { "type": "string", "enum": ["advance_account", "bbcoin_diamond"] },
+        "productId": { "type": "string" },
+        "productTitle": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemName": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "paymentMethodName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING_PAYMENT", "WAITING_VERIFICATION", "PROCESSING", "SUCCESS", "EXPIRED", "CANCELLED"] },
+        "paidAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "verifiedBy": { "type": "string" }
+      },
+      "required": ["id", "createdAt", "productType", "itemId", "itemName", "whatsapp", "totalAmount", "status"]
+    },
+    "ProductCatalog": {
+      "title": "ProductCatalog",
+      "description": "Product catalog and account inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "title": { "type": "string" }
+      },
+      "required": ["id", "type", "title"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Collection of customer orders"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/ProductCatalog" },
+      "description": "Product items and denomination inventory"
+    }
+  }
+}

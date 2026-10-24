@@ -1,6 +1,13 @@
 import { ProductCatalog, Order, OrderStatus, PromoCode, StoreMetrics, AccountCredential } from '../types/store';
 import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import { generateSerialNumber } from './currency';
+import {
+  saveOrderToCloud,
+  updateOrderInCloud,
+  fetchOrdersFromCloud,
+  subscribeToOrdersCloud,
+  getOrderFromCloud,
+} from './firebase';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'storeadv_products_v5',
@@ -49,18 +56,15 @@ export function saveProducts(products: ProductCatalog[]): void {
 // Background sync promise flag
 let isSyncing = false;
 
-export async function fetchOrdersFromServer(): Promise<Order[]> {
-  if (isSyncing) return loadOrdersLocal();
-  isSyncing = true;
+// Setup real-time listener from Firestore so any device receives orders instantly
+if (typeof window !== 'undefined') {
   try {
-    const res = await fetch('/api/orders');
-    if (res.ok) {
-      const serverOrders: Order[] = await res.json();
-      if (Array.isArray(serverOrders)) {
+    subscribeToOrdersCloud((cloudOrders) => {
+      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
         const local = loadOrdersLocal();
         const map = new Map<string, Order>();
         for (const o of local) map.set(o.id, o);
-        for (const o of serverOrders) map.set(o.id, o); // server data takes precedence
+        for (const o of cloudOrders) map.set(o.id, o); // Firestore takes precedence
 
         const merged = Array.from(map.values()).sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -72,11 +76,50 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
           localStorage.setItem(STORAGE_KEYS.ORDERS, newRaw);
           window.dispatchEvent(new Event('storeadv_orders_updated'));
         }
-        return merged;
       }
+    });
+  } catch (err) {
+    console.warn('Real-time order listener initialization warning:', err);
+  }
+}
+
+export async function fetchOrdersFromServer(): Promise<Order[]> {
+  if (isSyncing) return loadOrdersLocal();
+  isSyncing = true;
+  try {
+    // 1. Fetch from Firestore Cloud Database (works across devices & Vercel)
+    const cloudOrders = await fetchOrdersFromCloud();
+
+    // 2. Fetch from Express /api/orders (if available)
+    let serverOrders: Order[] = [];
+    try {
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        serverOrders = await res.json();
+      }
+    } catch {
+      // offline / static hosting
     }
-  } catch {
-    // Offline fallback
+
+    const local = loadOrdersLocal();
+    const map = new Map<string, Order>();
+    for (const o of local) map.set(o.id, o);
+    for (const o of serverOrders) map.set(o.id, o);
+    for (const o of cloudOrders) map.set(o.id, o); // Cloud takes priority
+
+    const merged = Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const currentRaw = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    const newRaw = JSON.stringify(merged);
+    if (currentRaw !== newRaw) {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, newRaw);
+      window.dispatchEvent(new Event('storeadv_orders_updated'));
+    }
+    return merged;
+  } catch (err) {
+    console.error('fetchOrdersFromServer error:', err);
   } finally {
     isSyncing = false;
   }
@@ -96,7 +139,7 @@ function loadOrdersLocal(): Order[] {
 }
 
 export function loadOrders(): Order[] {
-  // Trigger background sync from server
+  // Trigger background sync from Firestore and server
   fetchOrdersFromServer().catch(() => {});
   return loadOrdersLocal();
 }
@@ -111,25 +154,60 @@ export function saveOrders(orders: Order[]): void {
 }
 
 export async function syncOrderToServer(order: Order): Promise<void> {
-  try {
-    await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order),
-    });
-  } catch (err) {
-    console.error('Failed to sync order to server:', err);
-  }
+  // 1. Save to Cloud Firestore (Primary cross-device source of truth)
+  saveOrderToCloud(order).catch((err) => {
+    console.error('Failed to sync order to Cloud Firestore:', err);
+  });
+
+  // 2. Also POST to local Express server API
+  fetch('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(order),
+  }).catch(() => {});
 }
 
 export async function searchOrdersOnline(query: string): Promise<Order[]> {
   const cleanQ = query.trim().replace(/^#/, '');
+
+  // 1. Direct Cloud Firestore lookup by Invoice ID
+  try {
+    const directMatch = await getOrderFromCloud(cleanQ);
+    if (directMatch) {
+      const local = loadOrdersLocal();
+      const map = new Map<string, Order>();
+      for (const o of local) map.set(o.id, o);
+      map.set(directMatch.id, directMatch);
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(Array.from(map.values())));
+      window.dispatchEvent(new Event('storeadv_orders_updated'));
+      return [directMatch];
+    }
+  } catch {
+    // fallback
+  }
+
+  // 2. Fetch all cloud orders
+  try {
+    const cloudOrders = await fetchOrdersFromCloud();
+    if (cloudOrders.length > 0) {
+      const local = loadOrdersLocal();
+      const map = new Map<string, Order>();
+      for (const o of local) map.set(o.id, o);
+      for (const o of cloudOrders) map.set(o.id, o);
+      const merged = Array.from(map.values());
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(merged));
+      window.dispatchEvent(new Event('storeadv_orders_updated'));
+    }
+  } catch {
+    // fallback
+  }
+
+  // 3. Search via Express API if running
   try {
     const res = await fetch(`/api/orders/search?q=${encodeURIComponent(cleanQ)}`);
     if (res.ok) {
       const found: Order[] = await res.json();
       if (Array.isArray(found) && found.length > 0) {
-        // Cache found orders locally so user can immediately open them
         const local = loadOrdersLocal();
         const map = new Map<string, Order>();
         for (const o of local) map.set(o.id, o);
@@ -144,7 +222,7 @@ export async function searchOrdersOnline(query: string): Promise<Order[]> {
     // Fallback to local
   }
 
-  // Local fallback filter
+  // 4. Local filter fallback
   const all = loadOrdersLocal();
   const lowerQ = cleanQ.toLowerCase();
   const digits = lowerQ.replace(/[^0-9]/g, '');
@@ -312,7 +390,13 @@ export function buyerConfirmPayment(orderId: string): Order | null {
   orders[orderIndex] = updatedOrder;
   saveOrders(orders);
 
-  // Sync to server backend
+  // Sync to Firestore Cloud Database
+  updateOrderInCloud(orderId, {
+    status: 'WAITING_VERIFICATION',
+    logs: updatedOrder.logs,
+  }).catch(() => {});
+
+  // Sync to local server backend
   fetch(`/api/orders/${orderId}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -415,7 +499,19 @@ export function adminVerifyAndFulfillOrder(
   orders[orderIndex] = successOrder;
   saveOrders(orders);
 
-  // Sync verification & fulfillment to server
+  // Sync verification & fulfillment to Firestore Cloud Database
+  updateOrderInCloud(orderId, {
+    status: 'SUCCESS',
+    paidAt: successOrder.paidAt,
+    completedAt: successOrder.completedAt,
+    verifiedAt: successOrder.verifiedAt,
+    verifiedBy: successOrder.verifiedBy,
+    serialNumberDelivery: successOrder.serialNumberDelivery,
+    accountDelivered: successOrder.accountDelivered,
+    logs: successOrder.logs,
+  }).catch(() => {});
+
+  // Sync verification & fulfillment to local server
   fetch(`/api/orders/${orderId}/verify`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -454,6 +550,12 @@ export function adminMarkOrderExpired(orderId: string): Order | null {
 
   orders[orderIndex] = updated;
   saveOrders(orders);
+
+  // Sync to Firestore Cloud Database
+  updateOrderInCloud(orderId, {
+    status: 'EXPIRED',
+    logs: updated.logs,
+  }).catch(() => {});
 
   // Sync to server backend
   fetch(`/api/orders/${orderId}/status`, {
@@ -514,6 +616,13 @@ export function adminCancelOrder(orderId: string, reason = 'Dibatalkan oleh Admi
 
   orders[orderIndex] = updated;
   saveOrders(orders);
+
+  // Sync to Firestore Cloud Database
+  updateOrderInCloud(orderId, {
+    status: 'CANCELLED',
+    accountDelivered: undefined,
+    logs: updated.logs,
+  }).catch(() => {});
 
   // Sync to server backend
   fetch(`/api/orders/${orderId}/status`, {
