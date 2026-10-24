@@ -5,6 +5,7 @@ import {
   saveProducts,
   loadOrders,
   saveOrders,
+  fetchOrdersFromServer,
   loadPromos,
   savePromos,
   calculateMetrics,
@@ -65,14 +66,21 @@ import {
   QrCode,
   Smartphone,
   Upload,
+  ExternalLink,
+  Receipt,
 } from 'lucide-react';
 
 interface AdminInventoryProps {
   onLogout?: () => void;
   onBackToStore?: () => void;
+  onOpenInvoice?: (order: Order) => void;
 }
 
-export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBackToStore }) => {
+export const AdminInventory: React.FC<AdminInventoryProps> = ({
+  onLogout,
+  onBackToStore,
+  onOpenInvoice,
+}) => {
   const [activeTab, setActiveTab] = useState<'accounts' | 'bbcoin' | 'orders' | 'promos' | 'media' | 'qris' | 'guide'>('accounts');
 
   // Core data states
@@ -154,7 +162,14 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
     window.addEventListener('storeadv_products_updated', handleSync);
     window.addEventListener('storeadv_orders_updated', handleSync);
     window.addEventListener('storeadv_promos_updated', handleSync);
+
+    // Real-time sync: poll server orders every 3 seconds for new orders placed by buyers/friends
+    const pollTimer = setInterval(() => {
+      fetchOrdersFromServer();
+    }, 3000);
+
     return () => {
+      clearInterval(pollTimer);
       window.removeEventListener('storeadv_products_updated', handleSync);
       window.removeEventListener('storeadv_orders_updated', handleSync);
       window.removeEventListener('storeadv_promos_updated', handleSync);
@@ -1575,6 +1590,17 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                               <span>Verifikasi & Lunaskan</span>
                             </button>
                           )}
+                          {onOpenInvoice && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenInvoice(ord)}
+                              className="px-2.5 py-1 bg-blue-900/40 hover:bg-blue-800 text-blue-300 hover:text-white border border-blue-800/60 text-[11px] font-semibold rounded-lg transition-colors flex items-center gap-1"
+                              title="Lihat Tampilan Invoice Pembeli Lengkap"
+                            >
+                              <Receipt className="w-3.5 h-3.5 text-blue-400" />
+                              <span>Lihat Invoice</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => setSelectedOrderDetails(ord)}
                             className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] rounded transition-colors"
@@ -2979,6 +3005,22 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({ onLogout, onBack
                   ))}
                 </div>
               </div>
+
+              {onOpenInvoice && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ord = selectedOrderDetails;
+                    setSelectedOrderDetails(null);
+                    onOpenInvoice(ord);
+                  }}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-600/25 transition-all active:scale-95"
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>Buka Invoice Pembeli (Tampilan Lengkap)</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                </button>
+              )}
 
               <button
                 onClick={() => setSelectedOrderDetails(null)}

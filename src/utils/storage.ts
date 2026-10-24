@@ -3,40 +3,24 @@ import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES, HERO_PROMO_IMG, 
 import { generateSerialNumber } from './currency';
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'storeadv_products_v4',
-  ORDERS: 'storeadv_orders_v3',
+  PRODUCTS: 'storeadv_products_v5',
+  ORDERS: 'storeadv_orders_v5',
   PROMOS: 'storeadv_promos_v3',
 };
+
+// Cleanup old mock keys
+try {
+  localStorage.removeItem('storeadv_orders_v3');
+  localStorage.removeItem('storeadv_products_v4');
+  localStorage.removeItem('storeadv_products_v3');
+} catch {
+  // ignore
+}
 
 export function loadProducts(): ProductCatalog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     if (!raw) {
-      // Migrate custom account stock from v3 if present
-      const oldRaw = localStorage.getItem('storeadv_products_v3');
-      if (oldRaw) {
-        try {
-          const oldProducts: ProductCatalog[] = JSON.parse(oldRaw);
-          const migrated = INITIAL_PRODUCTS.map((initProd) => {
-            const oldMatch = oldProducts.find((p) => p.id === initProd.id);
-            if (oldMatch && initProd.type === 'advance_account') {
-              return {
-                ...initProd,
-                ...oldMatch,
-                denominations: initProd.denominations.map((initD) => {
-                  const oldD = oldMatch.denominations.find((d) => d.id === initD.id);
-                  return oldD ? { ...initD, ...oldD } : initD;
-                }),
-              };
-            }
-            return initProd;
-          });
-          saveProducts(migrated);
-          return migrated;
-        } catch {
-          // fallback
-        }
-      }
       saveProducts(INITIAL_PRODUCTS);
       return INITIAL_PRODUCTS;
     }
@@ -47,26 +31,132 @@ export function loadProducts(): ProductCatalog[] {
 }
 
 export function saveProducts(products: ProductCatalog[]): void {
-  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+  } catch (err) {
+    console.error('saveProducts error:', err);
+  }
   window.dispatchEvent(new Event('storeadv_products_updated'));
+
+  // Sync to server backend
+  fetch('/api/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(products),
+  }).catch(() => {});
 }
 
-export function loadOrders(): Order[] {
+// Background sync promise flag
+let isSyncing = false;
+
+export async function fetchOrdersFromServer(): Promise<Order[]> {
+  if (isSyncing) return loadOrdersLocal();
+  isSyncing = true;
+  try {
+    const res = await fetch('/api/orders');
+    if (res.ok) {
+      const serverOrders: Order[] = await res.json();
+      if (Array.isArray(serverOrders)) {
+        const local = loadOrdersLocal();
+        const map = new Map<string, Order>();
+        for (const o of local) map.set(o.id, o);
+        for (const o of serverOrders) map.set(o.id, o); // server data takes precedence
+
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        const currentRaw = localStorage.getItem(STORAGE_KEYS.ORDERS);
+        const newRaw = JSON.stringify(merged);
+        if (currentRaw !== newRaw) {
+          localStorage.setItem(STORAGE_KEYS.ORDERS, newRaw);
+          window.dispatchEvent(new Event('storeadv_orders_updated'));
+        }
+        return merged;
+      }
+    }
+  } catch {
+    // Offline fallback
+  } finally {
+    isSyncing = false;
+  }
+  return loadOrdersLocal();
+}
+
+function loadOrdersLocal(): Order[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (!raw) {
-      saveOrders(INITIAL_ORDERS);
-      return INITIAL_ORDERS;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_ORDERS;
+    return [];
   }
 }
 
+export function loadOrders(): Order[] {
+  // Trigger background sync from server
+  fetchOrdersFromServer().catch(() => {});
+  return loadOrdersLocal();
+}
+
 export function saveOrders(orders: Order[]): void {
-  localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+  try {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+  } catch (err) {
+    console.error('saveOrders error:', err);
+  }
   window.dispatchEvent(new Event('storeadv_orders_updated'));
+}
+
+export async function syncOrderToServer(order: Order): Promise<void> {
+  try {
+    await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order),
+    });
+  } catch (err) {
+    console.error('Failed to sync order to server:', err);
+  }
+}
+
+export async function searchOrdersOnline(query: string): Promise<Order[]> {
+  const cleanQ = query.trim().replace(/^#/, '');
+  try {
+    const res = await fetch(`/api/orders/search?q=${encodeURIComponent(cleanQ)}`);
+    if (res.ok) {
+      const found: Order[] = await res.json();
+      if (Array.isArray(found) && found.length > 0) {
+        // Cache found orders locally so user can immediately open them
+        const local = loadOrdersLocal();
+        const map = new Map<string, Order>();
+        for (const o of local) map.set(o.id, o);
+        for (const o of found) map.set(o.id, o);
+        const merged = Array.from(map.values());
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(merged));
+        window.dispatchEvent(new Event('storeadv_orders_updated'));
+        return found;
+      }
+    }
+  } catch {
+    // Fallback to local
+  }
+
+  // Local fallback filter
+  const all = loadOrdersLocal();
+  const lowerQ = cleanQ.toLowerCase();
+  const digits = lowerQ.replace(/[^0-9]/g, '');
+  return all.filter((o) => {
+    const matchId = o.id.toLowerCase().includes(lowerQ);
+    const matchWa = digits.length >= 4 && o.whatsapp.replace(/[^0-9]/g, '').includes(digits);
+    const matchUser = o.userId ? o.userId.toLowerCase().includes(lowerQ) : false;
+    const matchNick = o.userNickname ? o.userNickname.toLowerCase().includes(lowerQ) : false;
+    const matchEmail = o.accountDelivered?.email ? o.accountDelivered.email.toLowerCase().includes(lowerQ) : false;
+    const matchItem = o.itemName ? o.itemName.toLowerCase().includes(lowerQ) : false;
+    return matchId || matchWa || matchUser || matchNick || matchEmail || matchItem;
+  });
 }
 
 export function loadPromos(): PromoCode[] {
@@ -221,6 +311,14 @@ export function buyerConfirmPayment(orderId: string): Order | null {
 
   orders[orderIndex] = updatedOrder;
   saveOrders(orders);
+
+  // Sync to server backend
+  fetch(`/api/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'WAITING_VERIFICATION' }),
+  }).catch(() => {});
+
   return updatedOrder;
 }
 
@@ -316,6 +414,14 @@ export function adminVerifyAndFulfillOrder(
 
   orders[orderIndex] = successOrder;
   saveOrders(orders);
+
+  // Sync verification & fulfillment to server
+  fetch(`/api/orders/${orderId}/verify`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verifiedBy: verifierName }),
+  }).catch(() => {});
+
   return {
     success: true,
     order: successOrder,
@@ -348,6 +454,14 @@ export function adminMarkOrderExpired(orderId: string): Order | null {
 
   orders[orderIndex] = updated;
   saveOrders(orders);
+
+  // Sync to server backend
+  fetch(`/api/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'EXPIRED' }),
+  }).catch(() => {});
+
   return updated;
 }
 
@@ -400,6 +514,14 @@ export function adminCancelOrder(orderId: string, reason = 'Dibatalkan oleh Admi
 
   orders[orderIndex] = updated;
   saveOrders(orders);
+
+  // Sync to server backend
+  fetch(`/api/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'CANCELLED', actionBy: reason }),
+  }).catch(() => {});
+
   return updated;
 }
 

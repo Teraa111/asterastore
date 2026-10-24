@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCatalog, Order } from './types/store';
-import { loadProducts } from './utils/storage';
+import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
 import { GameCard } from './components/GameCard';
@@ -11,7 +11,7 @@ import { AdminInventory } from './components/AdminInventory';
 import { AdminAuthModal } from './components/AdminAuthModal';
 import { MlCalculatorModal } from './components/MlCalculatorModal';
 import { Footer } from './components/Footer';
-import { Sparkles, Key, Coins, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, Key, Coins, ShieldCheck, Zap, Receipt, ExternalLink, X } from 'lucide-react';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'store' | 'admin'>('store');
@@ -33,15 +33,43 @@ export default function App() {
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
+  // Live Orders state for persistent active invoice banner
+  const [recentOrders, setRecentOrders] = useState<Order[]>(() => loadOrders());
+  const [dismissedOrderBannerId, setDismissedOrderBannerId] = useState<string | null>(null);
+
   // Initial load & reactive listener
   useEffect(() => {
     setProducts(loadProducts());
-    const handleUpdate = () => {
+    setRecentOrders(loadOrders());
+    fetchOrdersFromServer();
+
+    const handleProductsUpdate = () => {
       setProducts(loadProducts());
     };
-    window.addEventListener('storeadv_products_updated', handleUpdate);
-    return () => window.removeEventListener('storeadv_products_updated', handleUpdate);
+    const handleOrdersUpdate = () => {
+      setRecentOrders(loadOrders());
+    };
+
+    window.addEventListener('storeadv_products_updated', handleProductsUpdate);
+    window.addEventListener('storeadv_orders_updated', handleOrdersUpdate);
+
+    const poll = setInterval(() => {
+      fetchOrdersFromServer();
+    }, 3500);
+
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('storeadv_products_updated', handleProductsUpdate);
+      window.removeEventListener('storeadv_orders_updated', handleOrdersUpdate);
+    };
   }, []);
+
+  // Find latest pending or waiting verification order to alert user
+  const activePendingOrder = recentOrders.find(
+    (o) =>
+      (o.status === 'WAITING_VERIFICATION' || o.status === 'PENDING_PAYMENT') &&
+      o.id !== dismissedOrderBannerId
+  );
 
   const handleSelectProductId = (id: 'mlbb-advance-server' | 'mlbb-bbcoin' | null) => {
     if (!id) {
@@ -122,6 +150,7 @@ export default function App() {
                 setSelectedProduct(null);
                 setCurrentView('store');
               }}
+              onOpenInvoice={(order) => setActivePaymentOrder(order)}
             />
           ) : (
             <div className="py-20 text-center">
@@ -248,6 +277,52 @@ export default function App() {
             handleSelectProductId('mlbb-bbcoin');
           }}
         />
+      )}
+
+      {/* Floating Active Invoice Bar (Buyer can re-open pending invoice anytime) */}
+      {activePendingOrder && !activePaymentOrder && !isTrackerOpen && (
+        <div className="fixed bottom-4 right-4 z-40 max-w-sm w-full bg-neutral-900 border border-blue-500/50 rounded-2xl p-3.5 shadow-2xl shadow-blue-900/40 animate-in slide-in-from-bottom duration-300">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0">
+                <Receipt className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-blue-400 font-mono">{activePendingOrder.id}</span>
+                  <span className={`text-[9px] font-bold border px-1.5 py-0.5 rounded ${getOrderStatusDetails(activePendingOrder.status).badgeClass}`}>
+                    {getOrderStatusDetails(activePendingOrder.status).label}
+                  </span>
+                </div>
+                <p className="text-xs text-white font-medium line-clamp-1 mt-0.5">
+                  {activePendingOrder.itemName}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDismissedOrderBannerId(activePendingOrder.id)}
+              className="text-neutral-500 hover:text-white p-1 rounded transition-colors"
+              title="Tutup pemberitahuan"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="mt-2.5 pt-2 border-t border-neutral-800 flex items-center justify-between">
+            <span className="text-[11px] text-neutral-400">
+              Ada invoice belum selesai
+            </span>
+            <button
+              type="button"
+              onClick={() => setActivePaymentOrder(activePendingOrder)}
+              className="px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-md shadow-blue-600/30 transition-all active:scale-95"
+            >
+              <span>Buka Invoice</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ProductCatalog, DenominationItem, PaymentChannel, PromoCode, Order } from '../types/store';
 import { PAYMENT_CHANNELS } from '../data/mockData';
 import { formatIDR, calculatePaymentFee, generateOrderId } from '../utils/currency';
-import { simulateCheckNickname, loadPromos, saveOrders, loadOrders, savePromos } from '../utils/storage';
+import { simulateCheckNickname, loadPromos, saveOrders, loadOrders, savePromos, syncOrderToServer } from '../utils/storage';
 import { QrisLogo, GopayLogo, DanaLogo } from './PaymentLogos';
 import {
   ArrowLeft,
@@ -239,6 +239,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
     const orders = loadOrders();
     orders.unshift(newOrder);
     saveOrders(orders);
+    syncOrderToServer(newOrder);
 
     if (appliedPromo) {
       const promos = loadPromos();
