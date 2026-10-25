@@ -26,7 +26,12 @@ import {
   syncAllProductsToCloud,
   getDenomReadyStock,
 } from '../utils/storage';
-import { isSupabaseConfigured, addAccountToVaultSupabase } from '../utils/supabase';
+import {
+  isSupabaseConfigured,
+  addAccountToVaultSupabase,
+  checkSupabaseStatus,
+  SUPABASE_SETUP_SQL,
+} from '../utils/supabase';
 import { formatIDR, formatNumber } from '../utils/currency';
 import { INITIAL_PRODUCTS, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import {
@@ -71,6 +76,8 @@ import {
   Upload,
   ExternalLink,
   Receipt,
+  Database,
+  Terminal,
 } from 'lucide-react';
 
 interface AdminInventoryProps {
@@ -142,6 +149,34 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   const [pinChangeError, setPinChangeError] = useState('');
   const [pinChangeSuccess, setPinChangeSuccess] = useState(false);
 
+  // Supabase Database Diagnostic & SQL Setup states
+  const [supabaseDiag, setSupabaseDiag] = useState<{
+    configured: boolean;
+    connected: boolean;
+    tablesExist: boolean;
+    errorMessage?: string;
+  } | null>(null);
+  const [isCheckingSupabase, setIsCheckingSupabase] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const runSupabaseCheck = async () => {
+    setIsCheckingSupabase(true);
+    try {
+      const res = await checkSupabaseStatus();
+      setSupabaseDiag(res);
+    } catch (e: any) {
+      setSupabaseDiag({
+        configured: isSupabaseConfigured(),
+        connected: false,
+        tablesExist: false,
+        errorMessage: e?.message || 'Gagal mengecek Supabase',
+      });
+    } finally {
+      setIsCheckingSupabase(false);
+    }
+  };
+
   // Status Action Toast Notification
   const [toastNotice, setToastNotice] = useState<{ message: string; type: 'success' | 'warning' } | null>(null);
 
@@ -161,7 +196,11 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
   useEffect(() => {
     refreshData();
-    const handleSync = () => refreshData();
+    runSupabaseCheck();
+    const handleSync = () => {
+      refreshData();
+      runSupabaseCheck();
+    };
     window.addEventListener('storeadv_products_updated', handleSync);
     window.addEventListener('storeadv_orders_updated', handleSync);
     window.addEventListener('storeadv_promos_updated', handleSync);
@@ -786,16 +825,26 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
               <Lock className="w-3 h-3" /> Brankas Terproteksi PIN
             </span>
             <span className="text-neutral-600">·</span>
-            <span
-              className={`text-xs font-medium flex items-center gap-1 px-2 py-0.5 rounded-full border ${
-                isSupabaseConfigured()
-                  ? 'text-teal-400 bg-teal-950/60 border-teal-800/80'
-                  : 'text-amber-400 bg-amber-950/60 border-amber-800/80'
+            <button
+              onClick={() => setShowSqlModal(true)}
+              className={`text-xs font-medium flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border cursor-pointer transition-all hover:scale-105 ${
+                !isSupabaseConfigured()
+                  ? 'text-amber-400 bg-amber-950/60 border-amber-800/80 hover:bg-amber-900/60'
+                  : supabaseDiag && !supabaseDiag.tablesExist
+                  ? 'text-rose-300 bg-rose-950/80 border-rose-700 animate-pulse'
+                  : 'text-teal-400 bg-teal-950/60 border-teal-800/80 hover:bg-teal-900/60'
               }`}
+              title="Klik untuk melihat Status & Skrip SQL Supabase"
             >
               <Zap className="w-3 h-3" />
-              {isSupabaseConfigured() ? 'Supabase Sync Aktif' : 'Supabase: Menunggu VITE_SUPABASE_URL'}
-            </span>
+              <span>
+                {!isSupabaseConfigured()
+                  ? 'Supabase: Menunggu Env URL'
+                  : supabaseDiag && !supabaseDiag.tablesExist
+                  ? '⚠️ Supabase: Tabel Belum Dibuat (Klik Setup)'
+                  : 'Supabase Sync Aktif'}
+              </span>
+            </button>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
             Manajemen Stok Akun Advance Server & BB Coin
@@ -806,6 +855,15 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setShowSqlModal(true)}
+            className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-teal-300 hover:text-teal-200 text-xs font-semibold rounded-xl border border-teal-800/60 flex items-center gap-1.5 transition-all shadow-sm"
+            title="Buka Skrip SQL Setup Database Supabase"
+          >
+            <Database className="w-3.5 h-3.5 text-teal-400" />
+            <span>Setup SQL Supabase</span>
+          </button>
+
           <button
             onClick={() => {
               setPinChangeError('');
@@ -832,11 +890,17 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
           <button
             onClick={async () => {
               showToast('Sedang memancarkan dan menyinkronkan stok ke Cloud...', 'warning');
-              const ok = await syncAllProductsToCloud(products);
-              if (ok) {
-                showToast('✅ Sukses! 2 Stok Akun telah di-upload ke Cloud Database. Browser lain (Hola / Teman) kini langsung membaca stok ini!', 'success');
+              const res = await syncAllProductsToCloud(products);
+              runSupabaseCheck();
+              if (res.supabaseOk) {
+                showToast('✅ Sukses! Stok telah di-upload ke Cloud Supabase & Firestore. Browser lain (Hola / Teman) sekarang langsung membaca stok ini!', 'success');
+              } else if (res.supabaseError) {
+                showToast(`⚠️ Supabase: ${res.supabaseError}`, 'warning');
+                setShowSqlModal(true);
+              } else if (res.firestoreOk) {
+                showToast('✅ Tersinkron ke Firestore Cloud. Jangan lupa jalankan SQL di Supabase agar sinkron 100%.', 'success');
               } else {
-                showToast('Stok lokal diperbarui dan dipancarkan ke Cloud Database.', 'success');
+                showToast('Stok lokal diperbarui.', 'success');
               }
             }}
             className="px-3.5 py-2 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 text-xs font-bold rounded-xl border border-emerald-800/60 flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-emerald-950/20"
@@ -3611,6 +3675,169 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: SETUP DATABASE SUPABASE (SQL RUNNER) ================= */}
+      {showSqlModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl relative my-8 animate-in fade-in duration-200">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowSqlModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-500/30">
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  Setup Database Supabase
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-950 text-teal-300 border border-teal-800 font-normal">
+                    Multi-Device Sync
+                  </span>
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Sinkronkan stok akun antara Chrome, Hola Browser, Tab Samaran, dan semua HP pengunjung.
+                </p>
+              </div>
+            </div>
+
+            {/* Status Live Diagnostic */}
+            <div className="mb-5 p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-400 font-medium">Kredensial Vercel/Env:</span>
+                <span className={isSupabaseConfigured() ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                  {isSupabaseConfigured() ? '✓ VITE_SUPABASE_URL Terdeteksi' : '⚠️ Belum dikonfigurasi di Vercel'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-400 font-medium">Tabel 'products' Supabase:</span>
+                <span
+                  className={
+                    supabaseDiag?.tablesExist
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-rose-400 font-bold flex items-center gap-1'
+                  }
+                >
+                  {isCheckingSupabase ? (
+                    'Mengecek...'
+                  ) : supabaseDiag?.tablesExist ? (
+                    '✓ Tabel Aktif & Siap'
+                  ) : (
+                    '⚠️ Belum Dibuat di Supabase'
+                  )}
+                </span>
+              </div>
+              {supabaseDiag?.errorMessage && !supabaseDiag.tablesExist && (
+                <div className="mt-2 p-2.5 rounded-xl bg-amber-950/40 border border-amber-900/60 text-amber-300 text-[11px] leading-relaxed">
+                  <strong>Penyebab Stok Beda / Kosong di Browser Lain:</strong> Database Supabase Anda belum memiliki tabel <code>products</code>. Jalankan skrip SQL di bawah ini 1x di dashboard Supabase agar stok 2 akun langsung tampil di semua browser!
+                </div>
+              )}
+            </div>
+
+            {/* Step-by-Step Instructions */}
+            <div className="mb-4">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5 text-blue-400" />
+                Cara Menjalankan Skrip (Hanya 1 Menit):
+              </h4>
+              <ol className="text-xs text-neutral-300 space-y-1.5 pl-4 list-decimal leading-relaxed">
+                <li>
+                  Klik tombol <strong>"Salin Skrip SQL"</strong> di bawah ini.
+                </li>
+                <li>
+                  Buka dashboard Supabase Anda di{' '}
+                  <a
+                    href="https://supabase.com/dashboard"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-400 underline inline-flex items-center gap-0.5 hover:text-blue-300"
+                  >
+                    supabase.com/dashboard <ExternalLink className="w-3 h-3" />
+                  </a>
+                </li>
+                <li>
+                  Buka menu <strong>SQL Editor</strong> di sidebar sebelah kiri &gt; Klik <strong>New query</strong>.
+                </li>
+                <li>
+                  <strong>Paste (Ctrl+V)</strong> skrip SQL tersebut, lalu klik tombol hijau <strong>Run</strong>.
+                </li>
+                <li>
+                  Selesai! Klik <strong>"Sinkronkan ke Cloud"</strong> di panel Admin ini. Stok akan otomatis sama persis di semua browser.
+                </li>
+              </ol>
+            </div>
+
+            {/* SQL Snippet View */}
+            <div className="relative mb-5">
+              <div className="max-h-52 overflow-y-auto p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-[11px] font-mono text-neutral-300 whitespace-pre leading-relaxed select-all">
+                {SUPABASE_SETUP_SQL}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+                  setCopiedSql(true);
+                  setTimeout(() => setCopiedSql(false), 3000);
+                  showToast('Skrip SQL berhasil disalin ke clipboard!', 'success');
+                }}
+                className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5 transition-all active:scale-95"
+              >
+                {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedSql ? 'Tersalin!' : 'Salin Skrip SQL'}</span>
+              </button>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-800">
+              <button
+                type="button"
+                onClick={runSupabaseCheck}
+                disabled={isCheckingSupabase}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                <span>{isCheckingSupabase ? 'Mengecek...' : 'Tes Ulang Status'}</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSqlModal(false)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition-colors"
+                >
+                  Tutup
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    showToast('Sedang memancarkan stok ke Cloud...', 'warning');
+                    const res = await syncAllProductsToCloud(products);
+                    runSupabaseCheck();
+                    if (res.supabaseOk) {
+                      showToast('✅ Sukses! 2 Stok Akun telah tersinkron ke Supabase Cloud!', 'success');
+                      setShowSqlModal(false);
+                    } else if (res.supabaseError) {
+                      showToast(`⚠️ Masih belum dibuat: ${res.supabaseError}`, 'warning');
+                    } else {
+                      showToast('Tersimpan di Cloud.', 'success');
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Sinkronkan Stok Sekarang</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

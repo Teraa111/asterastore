@@ -25,6 +25,145 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured()
     })
   : null;
 
+export const SUPABASE_SETUP_SQL = `-- ==========================================
+-- ASTERA STORE: SUPABASE DATABASE SETUP SQL
+-- Jalankan skrip ini di: Supabase Dashboard -> SQL Editor -> New query -> RUN
+-- ==========================================
+
+-- 1. Buat Tabel Produk Publik (Aman: Tanpa Password / Email Akun)
+CREATE TABLE IF NOT EXISTS public.products (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  cover_image TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  denominations JSONB DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 2. Aktifkan Row Level Security (RLS)
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+
+-- 3. Kebijakan Baca: Pengunjung publik (anon) dan admin dapat membaca katalog & stok
+DROP POLICY IF EXISTS "Public can view products" ON public.products;
+CREATE POLICY "Public can view products"
+  ON public.products
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+-- 4. Kebijakan Tulis: Pengunjung & Admin dapat menyinkronkan stok publik
+DROP POLICY IF EXISTS "Allow anon/authenticated upsert products" ON public.products;
+CREATE POLICY "Allow anon/authenticated upsert products"
+  ON public.products
+  FOR ALL
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- 5. Buat Brankas Kredensial Akun (Hanya Kredensial, Terisolasi dari Publik)
+CREATE TABLE IF NOT EXISTS public.account_vault (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  denomination_id TEXT NOT NULL,
+  product_id TEXT NOT NULL DEFAULT 'mlbb-advance-server',
+  email TEXT NOT NULL,
+  password TEXT NOT NULL,
+  server_info TEXT,
+  bind_type TEXT DEFAULT 'Moonton Sepaket Email',
+  level INT DEFAULT 8,
+  notes TEXT,
+  is_sold BOOLEAN DEFAULT FALSE,
+  sold_to_order_id TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.account_vault ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow insert account_vault" ON public.account_vault;
+CREATE POLICY "Allow insert account_vault"
+  ON public.account_vault
+  FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow select account_vault" ON public.account_vault;
+CREATE POLICY "Allow select account_vault"
+  ON public.account_vault
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Allow update account_vault" ON public.account_vault;
+CREATE POLICY "Allow update account_vault"
+  ON public.account_vault
+  FOR UPDATE
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- 6. Aktifkan Realtime Broadcasting agar semua browser (Chrome, Hola, dll.) sinkron otomatis
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'products'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
+  END IF;
+END $$;
+`;
+
+/**
+ * Diagnostic helper: checks whether Supabase connection & table 'products' exist
+ */
+export async function checkSupabaseStatus(): Promise<{
+  configured: boolean;
+  connected: boolean;
+  tablesExist: boolean;
+  errorMessage?: string;
+}> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return {
+      configured: false,
+      connected: false,
+      tablesExist: false,
+      errorMessage: 'VITE_SUPABASE_URL atau VITE_SUPABASE_ANON_KEY belum terkonfigurasi di env/Vercel.',
+    };
+  }
+
+  try {
+    const { data, error } = await supabase.from('products').select('id').limit(1);
+    if (error) {
+      if (error.code === '42P01' || error.message.includes('relation "products" does not exist')) {
+        return {
+          configured: true,
+          connected: true,
+          tablesExist: false,
+          errorMessage: 'Tabel "products" belum dibuat di Supabase SQL Editor.',
+        };
+      }
+      return {
+        configured: true,
+        connected: false,
+        tablesExist: false,
+        errorMessage: error.message,
+      };
+    }
+    return {
+      configured: true,
+      connected: true,
+      tablesExist: true,
+    };
+  } catch (err: any) {
+    return {
+      configured: true,
+      connected: false,
+      tablesExist: false,
+      errorMessage: err?.message || 'Gagal menghubungi server Supabase.',
+    };
+  }
+}
+
 /**
  * Fetch all public products with real-time stock counts from Supabase.
  * Does NOT contain sensitive credentials (email/password).
@@ -69,8 +208,17 @@ export async function fetchProductsFromSupabase(): Promise<ProductCatalog[] | nu
 /**
  * Sync initial products catalog to Supabase (only used for setup or initial migration)
  */
-export async function syncInitialProductsToSupabase(products: ProductCatalog[]): Promise<boolean> {
-  if (!supabase) return false;
+export async function syncInitialProductsToSupabase(products: ProductCatalog[]): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  if (!supabase) {
+    return {
+      success: false,
+      error: 'Supabase client belum aktif. Pastikan VITE_SUPABASE_URL sudah diisi di Vercel/env.',
+    };
+  }
+
   try {
     for (const p of products) {
       // Sanitize denominations so credentials are NEVER placed into public products table
@@ -97,12 +245,19 @@ export async function syncInitialProductsToSupabase(products: ProductCatalog[]):
       const { error } = await supabase.from('products').upsert(payload, { onConflict: 'id' });
       if (error) {
         console.warn('Failed to upsert product into Supabase:', error.message);
+        if (error.code === '42P01' || error.message.includes('relation "products" does not exist')) {
+          return {
+            success: false,
+            error: 'Tabel "products" belum ada di Supabase! Harap jalankan SQL Setup di Supabase Dashboard -> SQL Editor.',
+          };
+        }
+        return { success: false, error: error.message };
       }
     }
-    return true;
-  } catch (err) {
+    return { success: true };
+  } catch (err: any) {
     console.error('Error syncing products to Supabase:', err);
-    return false;
+    return { success: false, error: err?.message || 'Gagal menyimpan ke Supabase' };
   }
 }
 

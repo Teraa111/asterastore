@@ -185,25 +185,42 @@ export function loadProducts(): ProductCatalog[] {
   return loadProductsLocal();
 }
 
+export interface CloudSyncResult {
+  success: boolean;
+  supabaseOk: boolean;
+  firestoreOk: boolean;
+  supabaseError?: string;
+  firestoreError?: string;
+}
+
 /**
  * Force sync all current products and stock to Cloud (Supabase + Firestore)
  */
-export async function syncAllProductsToCloud(products: ProductCatalog[]): Promise<boolean> {
+export async function syncAllProductsToCloud(products: ProductCatalog[]): Promise<CloudSyncResult> {
   const sanitized = sanitizeProductsStock(products);
-  let anySuccess = false;
+  let supabaseOk = false;
+  let firestoreOk = false;
+  let supabaseError: string | undefined;
+  let firestoreError: string | undefined;
+
   // 1. Supabase
   try {
-    const sbOk = await syncInitialProductsToSupabase(sanitized);
-    if (sbOk) anySuccess = true;
-  } catch (err) {
+    const sbRes = await syncInitialProductsToSupabase(sanitized);
+    supabaseOk = sbRes.success;
+    if (!sbRes.success) {
+      supabaseError = sbRes.error;
+    }
+  } catch (err: any) {
+    supabaseError = err?.message || 'Error syncing to Supabase';
     console.warn('Supabase sync note:', err);
   }
 
   // 2. Firestore
   try {
     await saveProductsToCloud(sanitized);
-    anySuccess = true;
-  } catch (err) {
+    firestoreOk = true;
+  } catch (err: any) {
+    firestoreError = err?.message || 'Error saving to Firestore';
     console.warn('Firestore sync note:', err);
   }
 
@@ -214,7 +231,13 @@ export async function syncAllProductsToCloud(products: ProductCatalog[]): Promis
     body: JSON.stringify(sanitized),
   }).catch(() => {});
 
-  return anySuccess;
+  return {
+    success: supabaseOk || firestoreOk,
+    supabaseOk,
+    firestoreOk,
+    supabaseError,
+    firestoreError,
+  };
 }
 
 export function saveProducts(products: ProductCatalog[]): void {
