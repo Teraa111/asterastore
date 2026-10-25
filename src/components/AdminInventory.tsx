@@ -24,6 +24,7 @@ import {
   StoreAssetsConfig,
   DEFAULT_STORE_ASSETS,
   syncAllProductsToCloud,
+  getDenomReadyStock,
 } from '../utils/storage';
 import { isSupabaseConfigured, addAccountToVaultSupabase } from '../utils/supabase';
 import { formatIDR, formatNumber } from '../utils/currency';
@@ -1146,7 +1147,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {accountProduct.denominations.map((denom) => {
                 const isDenomActive = denom.isActive !== false;
-                const unsold = denom.accountPool?.filter((a) => !a.isSold).length || 0;
+                const unsold = getDenomReadyStock(denom);
                 const sold = denom.accountPool?.filter((a) => a.isSold).length || 0;
                 const isOutOfStock = unsold === 0;
 

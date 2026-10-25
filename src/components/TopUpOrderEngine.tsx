@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ProductCatalog, DenominationItem, PaymentChannel, PromoCode, Order } from '../types/store';
 import { PAYMENT_CHANNELS } from '../data/mockData';
 import { formatIDR, calculatePaymentFee, generateOrderId } from '../utils/currency';
-import { simulateCheckNickname, loadPromos, saveOrders, loadOrders, savePromos, syncOrderToServer } from '../utils/storage';
+import { simulateCheckNickname, loadPromos, saveOrders, loadOrders, savePromos, syncOrderToServer, getDenomReadyStock } from '../utils/storage';
 import { QrisLogo, GopayLogo, DanaLogo } from './PaymentLogos';
 import {
   ArrowLeft,
@@ -174,9 +174,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
     }
 
     const isItemActive = selectedItem.isActive !== false;
-    const readyStock = typeof selectedItem.stockCount === 'number' && selectedItem.stockCount >= 0
-      ? selectedItem.stockCount
-      : (selectedItem.accountPool ? selectedItem.accountPool.filter(a => !a.isSold).length : 0);
+    const readyStock = getDenomReadyStock(selectedItem);
     if (!isItemActive || (selectedItem.stockType === 'account_pool' && readyStock <= 0)) {
       setFormError(`⚠️ Paket "${selectedItem.name}" sedang kosong atau dinonaktifkan oleh Admin. Silakan pilih paket lain.`);
       return;
@@ -528,9 +526,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {product.denominations.map((item) => {
                 const isItemActive = item.isActive !== false;
-                const unsold = typeof item.stockCount === 'number' && item.stockCount >= 0
-                  ? item.stockCount
-                  : (item.accountPool ? item.accountPool.filter((a) => !a.isSold).length : 0);
+                const unsold = getDenomReadyStock(item);
                 const isOutOfStock = !isItemActive || unsold <= 0;
                 const isSelected = selectedItem?.id === item.id && !isOutOfStock;
 

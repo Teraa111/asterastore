@@ -29,7 +29,7 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
         priceBase: 35000,
         priceSell: 49000,
         stockType: 'account_pool',
-        stockCount: 4,
+        stockCount: 0,
         isFlashSale: true,
         strikePrice: 65000,
         bonusText: 'Paling Laris',

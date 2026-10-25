@@ -33,6 +33,43 @@ try {
   // ignore
 }
 
+/**
+ * Single Source of Truth for calculating ready stock for any denomination
+ */
+export function getDenomReadyStock(denom: {
+  stockType: string;
+  stockCount: number;
+  accountPool?: AccountCredential[];
+}): number {
+  if (denom.stockType === 'auto_inject') {
+    return -1;
+  }
+  // If account pool exists and is populated, the actual unsold count is the definitive stock
+  if (Array.isArray(denom.accountPool) && denom.accountPool.length > 0) {
+    return denom.accountPool.filter((a) => !a.isSold).length;
+  }
+  return typeof denom.stockCount === 'number' && denom.stockCount >= 0 ? denom.stockCount : 0;
+}
+
+/**
+ * Ensure stockCount on every denomination matches its real accountPool count
+ */
+export function sanitizeProductsStock(products: ProductCatalog[]): ProductCatalog[] {
+  return products.map((prod) => ({
+    ...prod,
+    denominations: prod.denominations.map((d) => {
+      if (d.stockType === 'account_pool') {
+        const ready = getDenomReadyStock(d);
+        return {
+          ...d,
+          stockCount: ready,
+        };
+      }
+      return d;
+    }),
+  }));
+}
+
 function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): ProductCatalog[] {
   const map = new Map<string, ProductCatalog>();
   for (const l of local) map.set(l.id, l);
@@ -48,15 +85,15 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
       }
       const updatedDenoms = c.denominations.map((cd) => {
         const ed = denomMap.get(cd.id);
-        const cloudCount = typeof cd.stockCount === 'number' ? cd.stockCount : 0;
-        const localCount = ed ? (ed.accountPool ? ed.accountPool.filter((a: any) => !a.isSold).length : ed.stockCount) : 0;
-        // Take the highest confirmed stock count between cloud and local admin
-        const maxStock = Math.max(cloudCount, localCount);
+        const hasLocalPool = ed && Array.isArray(ed.accountPool) && ed.accountPool.length > 0;
+        const realStock = hasLocalPool
+          ? ed.accountPool.filter((a: any) => !a.isSold).length
+          : (typeof cd.stockCount === 'number' ? cd.stockCount : (ed?.stockCount ?? 0));
 
         return {
           ...cd,
           accountPool: ed?.accountPool || cd.accountPool,
-          stockCount: maxStock,
+          stockCount: realStock,
         };
       });
 
@@ -68,7 +105,7 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
     }
   }
 
-  return Array.from(map.values());
+  return sanitizeProductsStock(Array.from(map.values()));
 }
 
 let isSyncingProducts = false;
@@ -131,12 +168,14 @@ export function loadProductsLocal(): ProductCatalog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     if (!raw) {
-      saveProducts(INITIAL_PRODUCTS);
-      return INITIAL_PRODUCTS;
+      const sanitized = sanitizeProductsStock(INITIAL_PRODUCTS);
+      saveProducts(sanitized);
+      return sanitized;
     }
-    return JSON.parse(raw);
+    const parsed: ProductCatalog[] = JSON.parse(raw);
+    return sanitizeProductsStock(parsed);
   } catch {
-    return INITIAL_PRODUCTS;
+    return sanitizeProductsStock(INITIAL_PRODUCTS);
   }
 }
 
@@ -150,10 +189,11 @@ export function loadProducts(): ProductCatalog[] {
  * Force sync all current products and stock to Cloud (Supabase + Firestore)
  */
 export async function syncAllProductsToCloud(products: ProductCatalog[]): Promise<boolean> {
+  const sanitized = sanitizeProductsStock(products);
   let anySuccess = false;
   // 1. Supabase
   try {
-    const sbOk = await syncInitialProductsToSupabase(products);
+    const sbOk = await syncInitialProductsToSupabase(sanitized);
     if (sbOk) anySuccess = true;
   } catch (err) {
     console.warn('Supabase sync note:', err);
@@ -161,7 +201,7 @@ export async function syncAllProductsToCloud(products: ProductCatalog[]): Promis
 
   // 2. Firestore
   try {
-    await saveProductsToCloud(products);
+    await saveProductsToCloud(sanitized);
     anySuccess = true;
   } catch (err) {
     console.warn('Firestore sync note:', err);
@@ -171,22 +211,23 @@ export async function syncAllProductsToCloud(products: ProductCatalog[]): Promis
   fetch('/api/products', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(products),
+    body: JSON.stringify(sanitized),
   }).catch(() => {});
 
   return anySuccess;
 }
 
 export function saveProducts(products: ProductCatalog[]): void {
+  const sanitized = sanitizeProductsStock(products);
   try {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(sanitized));
   } catch (err) {
     console.error('saveProducts error:', err);
   }
   window.dispatchEvent(new Event('storeadv_products_updated'));
 
   // Sync to Cloud Databases (Supabase + Firestore)
-  syncAllProductsToCloud(products).catch(() => {});
+  syncAllProductsToCloud(sanitized).catch(() => {});
 }
 
 // Setup real-time listener from Supabase so stock changes reflect instantly across browsers (Chrome, Hola, etc.)
@@ -421,13 +462,17 @@ export function calculateMetrics(orders: Order[], products: ProductCatalog[]): S
   for (const p of products) {
     for (const d of p.denominations) {
       itemBasePriceMap.set(d.id, d.priceBase);
-      if (d.stockType === 'account_pool' && d.accountPool) {
-        for (const acc of d.accountPool) {
-          if (acc.isSold) {
-            accountsSold++;
-          } else {
-            accountsAvailable++;
+      if (d.stockType === 'account_pool') {
+        if (d.accountPool && d.accountPool.length > 0) {
+          for (const acc of d.accountPool) {
+            if (acc.isSold) {
+              accountsSold++;
+            } else {
+              accountsAvailable++;
+            }
           }
+        } else if (typeof d.stockCount === 'number' && d.stockCount > 0) {
+          accountsAvailable += d.stockCount;
         }
       }
     }
