@@ -64,6 +64,17 @@ export default function App() {
     };
   }, []);
 
+  // Keep active product view in sync with real-time stock updates from Supabase
+  useEffect(() => {
+    if (selectedProduct) {
+      const refreshed = products.find((p) => p.id === selectedProduct.id);
+      if (refreshed && JSON.stringify(refreshed) !== JSON.stringify(selectedProduct)) {
+        setSelectedProduct(refreshed);
+      }
+    }
+  }, [products]);
+
+
   // Find latest pending or waiting verification order to alert user
   const activePendingOrder = recentOrders.find(
     (o) =>

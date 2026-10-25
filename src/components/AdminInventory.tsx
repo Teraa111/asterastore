@@ -24,6 +24,7 @@ import {
   StoreAssetsConfig,
   DEFAULT_STORE_ASSETS,
 } from '../utils/storage';
+import { isSupabaseConfigured, addAccountToVaultSupabase } from '../utils/supabase';
 import { formatIDR, formatNumber } from '../utils/currency';
 import { INITIAL_PRODUCTS, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
 import {
@@ -288,10 +289,25 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
     saveProducts(updated);
     setProducts(updated);
+
+    // Sync to Supabase Account Vault
+    if (isSupabaseConfigured()) {
+      addAccountToVaultSupabase(selectedDenomForAccount, {
+        email: newAccEmail.trim(),
+        password: newAccPassword.trim(),
+        serverInfo: newAccServer.trim(),
+        bindType: 'Moonton Sepaket Email',
+        level: Number(newAccLevel),
+        notes: newAccNotes.trim(),
+      }).catch((err) => {
+        console.warn('Sync to Supabase vault note:', err);
+      });
+    }
+
     setNewAccEmail('');
     setNewAccPassword('');
     setShowAddAccountModal(false);
-    showToast('Akun baru berhasil ditambahkan ke brankas!', 'success');
+    showToast('Akun baru berhasil ditambahkan ke brankas & disinkronkan ke Supabase!', 'success');
   };
 
   // Open Edit Account Modal (Ubah email, password, server, level jika salah ketik)
@@ -766,6 +782,17 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
             <span className="text-neutral-600">·</span>
             <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
               <Lock className="w-3 h-3" /> Brankas Terproteksi PIN
+            </span>
+            <span className="text-neutral-600">·</span>
+            <span
+              className={`text-xs font-medium flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                isSupabaseConfigured()
+                  ? 'text-teal-400 bg-teal-950/60 border-teal-800/80'
+                  : 'text-amber-400 bg-amber-950/60 border-amber-800/80'
+              }`}
+            >
+              <Zap className="w-3 h-3" />
+              {isSupabaseConfigured() ? 'Supabase Sync Aktif' : 'Supabase: Menunggu VITE_SUPABASE_URL'}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">

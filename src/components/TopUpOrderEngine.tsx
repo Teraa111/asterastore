@@ -174,7 +174,9 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
     }
 
     const isItemActive = selectedItem.isActive !== false;
-    const readyStock = selectedItem.accountPool ? selectedItem.accountPool.filter(a => !a.isSold).length : selectedItem.stockCount;
+    const readyStock = typeof selectedItem.stockCount === 'number' && selectedItem.stockCount >= 0
+      ? selectedItem.stockCount
+      : (selectedItem.accountPool ? selectedItem.accountPool.filter(a => !a.isSold).length : 0);
     if (!isItemActive || (selectedItem.stockType === 'account_pool' && readyStock <= 0)) {
       setFormError(`⚠️ Paket "${selectedItem.name}" sedang kosong atau dinonaktifkan oleh Admin. Silakan pilih paket lain.`);
       return;
@@ -526,7 +528,9 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {product.denominations.map((item) => {
                 const isItemActive = item.isActive !== false;
-                const unsold = item.accountPool ? item.accountPool.filter((a) => !a.isSold).length : item.stockCount;
+                const unsold = typeof item.stockCount === 'number' && item.stockCount >= 0
+                  ? item.stockCount
+                  : (item.accountPool ? item.accountPool.filter((a) => !a.isSold).length : 0);
                 const isOutOfStock = !isItemActive || unsold <= 0;
                 const isSelected = selectedItem?.id === item.id && !isOutOfStock;
 

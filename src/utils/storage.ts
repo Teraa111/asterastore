@@ -8,6 +8,13 @@ import {
   subscribeToOrdersCloud,
   getOrderFromCloud,
 } from './firebase';
+import {
+  fetchProductsFromSupabase,
+  syncInitialProductsToSupabase,
+  subscribeToProductsSupabase,
+  isSupabaseConfigured,
+  fulfillOrderAtomicSupabase,
+} from './supabase';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'storeadv_products_v5',
@@ -24,7 +31,67 @@ try {
   // ignore
 }
 
-export function loadProducts(): ProductCatalog[] {
+function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): ProductCatalog[] {
+  const map = new Map<string, ProductCatalog>();
+  for (const l of local) map.set(l.id, l);
+
+  for (const c of cloud) {
+    const existing = map.get(c.id);
+    if (!existing) {
+      map.set(c.id, c);
+    } else {
+      const denomMap = new Map<string, any>();
+      if (existing.denominations) {
+        for (const d of existing.denominations) denomMap.set(d.id, d);
+      }
+      const updatedDenoms = c.denominations.map((cd) => {
+        const ed = denomMap.get(cd.id);
+        return {
+          ...cd,
+          accountPool: ed?.accountPool || cd.accountPool,
+          stockCount: typeof cd.stockCount === 'number' ? cd.stockCount : (ed?.stockCount ?? 0),
+        };
+      });
+
+      map.set(c.id, {
+        ...existing,
+        ...c,
+        denominations: updatedDenoms,
+      });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+let isSyncingProducts = false;
+
+export async function fetchProductsFromCloudServer(): Promise<ProductCatalog[]> {
+  if (isSyncingProducts) return loadProductsLocal();
+  isSyncingProducts = true;
+  try {
+    // 1. Fetch from Supabase (Primary Multi-Device Source of Truth)
+    const supabaseProducts = await fetchProductsFromSupabase();
+    if (supabaseProducts && supabaseProducts.length > 0) {
+      const local = loadProductsLocal();
+      const merged = mergeCloudProducts(local, supabaseProducts);
+      const currentRaw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+      const newRaw = JSON.stringify(merged);
+      if (currentRaw !== newRaw) {
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, newRaw);
+        window.dispatchEvent(new Event('storeadv_products_updated'));
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn('fetchProductsFromCloudServer warning:', err);
+  } finally {
+    isSyncingProducts = false;
+  }
+  return loadProductsLocal();
+}
+
+export function loadProductsLocal(): ProductCatalog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     if (!raw) {
@@ -37,6 +104,12 @@ export function loadProducts(): ProductCatalog[] {
   }
 }
 
+export function loadProducts(): ProductCatalog[] {
+  // Trigger background cloud sync from Supabase
+  fetchProductsFromCloudServer().catch(() => {});
+  return loadProductsLocal();
+}
+
 export function saveProducts(products: ProductCatalog[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
@@ -45,13 +118,35 @@ export function saveProducts(products: ProductCatalog[]): void {
   }
   window.dispatchEvent(new Event('storeadv_products_updated'));
 
-  // Sync to server backend
+  // 1. Sync to Supabase Cloud Database (Multi-Device stock synchronization)
+  syncInitialProductsToSupabase(products).catch((err) => {
+    console.warn('Sync products to Supabase note:', err);
+  });
+
+  // 2. Sync to server backend
   fetch('/api/products', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(products),
   }).catch(() => {});
 }
+
+// Setup real-time listener from Supabase so stock changes reflect instantly across browsers (Chrome, Hola, etc.)
+if (typeof window !== 'undefined') {
+  try {
+    subscribeToProductsSupabase((cloudProducts) => {
+      if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
+        const local = loadProductsLocal();
+        const merged = mergeCloudProducts(local, cloudProducts);
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(merged));
+        window.dispatchEvent(new Event('storeadv_products_updated'));
+      }
+    });
+  } catch (err) {
+    console.warn('Real-time Supabase product listener init:', err);
+  }
+}
+
 
 // Background sync promise flag
 let isSyncing = false;
