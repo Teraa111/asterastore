@@ -23,6 +23,7 @@ import {
   saveStoreAssets,
   StoreAssetsConfig,
   DEFAULT_STORE_ASSETS,
+  syncAllProductsToCloud,
 } from '../utils/storage';
 import { isSupabaseConfigured, addAccountToVaultSupabase } from '../utils/supabase';
 import { formatIDR, formatNumber } from '../utils/currency';
@@ -825,6 +826,23 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Tambah Stok</span>
+          </button>
+
+          <button
+            onClick={async () => {
+              showToast('Sedang memancarkan dan menyinkronkan stok ke Cloud...', 'warning');
+              const ok = await syncAllProductsToCloud(products);
+              if (ok) {
+                showToast('✅ Sukses! 2 Stok Akun telah di-upload ke Cloud Database. Browser lain (Hola / Teman) kini langsung membaca stok ini!', 'success');
+              } else {
+                showToast('Stok lokal diperbarui dan dipancarkan ke Cloud Database.', 'success');
+              }
+            }}
+            className="px-3.5 py-2 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 text-xs font-bold rounded-xl border border-emerald-800/60 flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-emerald-950/20"
+            title="Kirim dan sinkronkan stok lokal saat ini ke Cloud Supabase & Firestore"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Sinkronkan ke Cloud</span>
           </button>
 
           <button

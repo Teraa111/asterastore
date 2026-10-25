@@ -7,6 +7,8 @@ import {
   fetchOrdersFromCloud,
   subscribeToOrdersCloud,
   getOrderFromCloud,
+  saveProductsToCloud,
+  fetchProductsFromCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -46,10 +48,15 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
       }
       const updatedDenoms = c.denominations.map((cd) => {
         const ed = denomMap.get(cd.id);
+        const cloudCount = typeof cd.stockCount === 'number' ? cd.stockCount : 0;
+        const localCount = ed ? (ed.accountPool ? ed.accountPool.filter((a: any) => !a.isSold).length : ed.stockCount) : 0;
+        // Take the highest confirmed stock count between cloud and local admin
+        const maxStock = Math.max(cloudCount, localCount);
+
         return {
           ...cd,
           accountPool: ed?.accountPool || cd.accountPool,
-          stockCount: typeof cd.stockCount === 'number' ? cd.stockCount : (ed?.stockCount ?? 0),
+          stockCount: maxStock,
         };
       });
 
@@ -70,11 +77,37 @@ export async function fetchProductsFromCloudServer(): Promise<ProductCatalog[]> 
   if (isSyncingProducts) return loadProductsLocal();
   isSyncingProducts = true;
   try {
+    let cloudList: ProductCatalog[] = [];
+
     // 1. Fetch from Supabase (Primary Multi-Device Source of Truth)
-    const supabaseProducts = await fetchProductsFromSupabase();
-    if (supabaseProducts && supabaseProducts.length > 0) {
-      const local = loadProductsLocal();
-      const merged = mergeCloudProducts(local, supabaseProducts);
+    try {
+      const supabaseProducts = await fetchProductsFromSupabase();
+      if (supabaseProducts && supabaseProducts.length > 0) {
+        cloudList = supabaseProducts;
+      }
+    } catch (err) {
+      console.warn('Supabase product fetch warning:', err);
+    }
+
+    // 2. Fetch from Firestore (Secondary Multi-Device Source)
+    try {
+      const firestoreProducts = await fetchProductsFromCloud();
+      if (firestoreProducts && firestoreProducts.length > 0) {
+        if (cloudList.length === 0) {
+          cloudList = firestoreProducts;
+        } else {
+          cloudList = mergeCloudProducts(cloudList, firestoreProducts);
+        }
+      }
+    } catch (err) {
+      console.warn('Firestore product fetch warning:', err);
+    }
+
+    const local = loadProductsLocal();
+
+    // If cloud has data, merge into local
+    if (cloudList.length > 0) {
+      const merged = mergeCloudProducts(local, cloudList);
       const currentRaw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       const newRaw = JSON.stringify(merged);
       if (currentRaw !== newRaw) {
@@ -82,6 +115,9 @@ export async function fetchProductsFromCloudServer(): Promise<ProductCatalog[]> 
         window.dispatchEvent(new Event('storeadv_products_updated'));
       }
       return merged;
+    } else {
+      // If cloud is completely empty but local has items/stocks, auto-upload local to cloud!
+      syncAllProductsToCloud(local).catch(() => {});
     }
   } catch (err) {
     console.warn('fetchProductsFromCloudServer warning:', err);
@@ -105,9 +141,40 @@ export function loadProductsLocal(): ProductCatalog[] {
 }
 
 export function loadProducts(): ProductCatalog[] {
-  // Trigger background cloud sync from Supabase
+  // Trigger background cloud sync from Supabase + Firestore
   fetchProductsFromCloudServer().catch(() => {});
   return loadProductsLocal();
+}
+
+/**
+ * Force sync all current products and stock to Cloud (Supabase + Firestore)
+ */
+export async function syncAllProductsToCloud(products: ProductCatalog[]): Promise<boolean> {
+  let anySuccess = false;
+  // 1. Supabase
+  try {
+    const sbOk = await syncInitialProductsToSupabase(products);
+    if (sbOk) anySuccess = true;
+  } catch (err) {
+    console.warn('Supabase sync note:', err);
+  }
+
+  // 2. Firestore
+  try {
+    await saveProductsToCloud(products);
+    anySuccess = true;
+  } catch (err) {
+    console.warn('Firestore sync note:', err);
+  }
+
+  // 3. Local server
+  fetch('/api/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(products),
+  }).catch(() => {});
+
+  return anySuccess;
 }
 
 export function saveProducts(products: ProductCatalog[]): void {
@@ -118,17 +185,8 @@ export function saveProducts(products: ProductCatalog[]): void {
   }
   window.dispatchEvent(new Event('storeadv_products_updated'));
 
-  // 1. Sync to Supabase Cloud Database (Multi-Device stock synchronization)
-  syncInitialProductsToSupabase(products).catch((err) => {
-    console.warn('Sync products to Supabase note:', err);
-  });
-
-  // 2. Sync to server backend
-  fetch('/api/products', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(products),
-  }).catch(() => {});
+  // Sync to Cloud Databases (Supabase + Firestore)
+  syncAllProductsToCloud(products).catch(() => {});
 }
 
 // Setup real-time listener from Supabase so stock changes reflect instantly across browsers (Chrome, Hola, etc.)
