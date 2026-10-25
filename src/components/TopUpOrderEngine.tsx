@@ -59,11 +59,33 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
   const [selectedItem, setSelectedItem] = useState<DenominationItem | null>(() => {
     const available = product.denominations.filter((d) => {
       const isAct = d.isActive !== false;
-      const readyStock = d.accountPool ? d.accountPool.filter((a) => !a.isSold).length : d.stockCount;
+      const readyStock = getDenomReadyStock(d);
       return isAct && (d.stockType !== 'account_pool' || readyStock > 0);
     });
-    return available.find((d) => d.isFlashSale) || available[0] || null;
+    return available.find((d) => d.isFlashSale) || available[0] || product.denominations[0] || null;
   });
+
+  // Keep selectedItem in sync when product.denominations update from cloud
+  React.useEffect(() => {
+    if (!selectedItem) {
+      const available = product.denominations.filter((d) => {
+        const isAct = d.isActive !== false;
+        const readyStock = getDenomReadyStock(d);
+        return isAct && (d.stockType !== 'account_pool' || readyStock > 0);
+      });
+      const chosen = available.find((d) => d.isFlashSale) || available[0] || product.denominations[0] || null;
+      if (chosen) setSelectedItem(chosen);
+    } else {
+      const refreshed = product.denominations.find((d) => d.id === selectedItem.id);
+      if (refreshed) {
+        const oldStock = getDenomReadyStock(selectedItem);
+        const newStock = getDenomReadyStock(refreshed);
+        if (oldStock !== newStock || refreshed.isActive !== selectedItem.isActive) {
+          setSelectedItem(refreshed);
+        }
+      }
+    }
+  }, [product]);
 
   // Selected Payment
   const [selectedPayment, setSelectedPayment] = useState<PaymentChannel>(PAYMENT_CHANNELS[0]);
@@ -995,7 +1017,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
           </div>
 
           <div className="mt-6">
-            {isProductActive && selectedItem && selectedItem.isActive !== false && (selectedItem.stockType !== 'account_pool' || (selectedItem.accountPool ? selectedItem.accountPool.filter((a) => !a.isSold).length : selectedItem.stockCount) > 0) ? (
+            {isProductActive && selectedItem && selectedItem.isActive !== false && (selectedItem.stockType !== 'account_pool' || getDenomReadyStock(selectedItem) > 0) ? (
               <button
                 type="button"
                 onClick={handleInitiateOrder}

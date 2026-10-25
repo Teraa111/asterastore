@@ -224,8 +224,13 @@ export async function syncInitialProductsToSupabase(products: ProductCatalog[]):
       // Sanitize denominations so credentials are NEVER placed into public products table
       const sanitizedDenoms = p.denominations.map((d) => {
         const { accountPool, ...rest } = d;
-        // Count stock based on pool if present, otherwise keep stockCount
-        const count = accountPool ? accountPool.filter((a) => !a.isSold).length : d.stockCount;
+        // Count stock based on pool if present and populated, otherwise preserve stockCount
+        const count =
+          Array.isArray(accountPool) && accountPool.length > 0
+            ? accountPool.filter((a) => !a.isSold).length
+            : typeof d.stockCount === 'number'
+            ? d.stockCount
+            : 0;
         return {
           ...rest,
           stockCount: count,

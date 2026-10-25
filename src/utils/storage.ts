@@ -92,7 +92,7 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
 
         return {
           ...cd,
-          accountPool: ed?.accountPool || cd.accountPool,
+          accountPool: hasLocalPool ? ed.accountPool : (Array.isArray(cd.accountPool) ? cd.accountPool : []),
           stockCount: realStock,
         };
       });

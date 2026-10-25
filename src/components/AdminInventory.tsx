@@ -636,7 +636,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
         return {
           ...p,
           denominations: p.denominations.map((d) => {
-            const unsold = d.accountPool ? d.accountPool.filter((a) => !a.isSold).length : d.stockCount;
+            const unsold = getDenomReadyStock(d);
             if (unsold <= 0 && d.isActive !== false) {
               disabledCount++;
               return {
