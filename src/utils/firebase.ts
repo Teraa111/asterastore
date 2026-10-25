@@ -163,3 +163,31 @@ export async function fetchProductsFromCloud(): Promise<ProductCatalog[]> {
     return [];
   }
 }
+
+/**
+ * Real-time listener for products & stocks across all devices & browsers (Chrome, Hola, incognito, etc.)
+ */
+export function subscribeToProductsCloud(onProductsChange: (products: ProductCatalog[]) => void): () => void {
+  try {
+    const unsubscribe = onSnapshot(
+      collection(db, PRODUCTS_COLLECTION),
+      (snapshot) => {
+        const list: ProductCatalog[] = [];
+        snapshot.forEach((d) => {
+          list.push(d.data() as ProductCatalog);
+        });
+        if (list.length > 0) {
+          onProductsChange(list);
+        }
+      },
+      (err) => {
+        console.warn('Firestore products onSnapshot warning:', err);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.error('Failed to subscribe to Firestore products:', err);
+    return () => {};
+  }
+}
+

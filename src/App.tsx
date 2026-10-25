@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCatalog, Order } from './types/store';
-import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer } from './utils/storage';
+import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer, fetchProductsFromCloudServer } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
 import { GameCard } from './components/GameCard';
@@ -55,7 +55,8 @@ export default function App() {
 
     const poll = setInterval(() => {
       fetchOrdersFromServer();
-    }, 3500);
+      fetchProductsFromCloudServer().catch(() => {});
+    }, 3000);
 
     return () => {
       clearInterval(poll);

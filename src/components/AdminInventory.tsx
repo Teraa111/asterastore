@@ -25,6 +25,7 @@ import {
   DEFAULT_STORE_ASSETS,
   syncAllProductsToCloud,
   getDenomReadyStock,
+  fetchProductsFromCloudServer,
 } from '../utils/storage';
 import {
   isSupabaseConfigured,
@@ -205,9 +206,10 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     window.addEventListener('storeadv_orders_updated', handleSync);
     window.addEventListener('storeadv_promos_updated', handleSync);
 
-    // Real-time sync: poll server orders every 3 seconds for new orders placed by buyers/friends
+    // Real-time sync: poll server orders & products every 3 seconds
     const pollTimer = setInterval(() => {
       fetchOrdersFromServer();
+      fetchProductsFromCloudServer().catch(() => {});
     }, 3000);
 
     return () => {

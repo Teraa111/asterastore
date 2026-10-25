@@ -9,6 +9,7 @@ import {
   getOrderFromCloud,
   saveProductsToCloud,
   fetchProductsFromCloud,
+  subscribeToProductsCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -253,19 +254,36 @@ export function saveProducts(products: ProductCatalog[]): void {
   syncAllProductsToCloud(sanitized).catch(() => {});
 }
 
-// Setup real-time listener from Supabase so stock changes reflect instantly across browsers (Chrome, Hola, etc.)
+function applyCloudProductsUpdate(cloudProducts: ProductCatalog[]) {
+  if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
+    const local = loadProductsLocal();
+    const merged = mergeCloudProducts(local, cloudProducts);
+    const currentRaw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+    const newRaw = JSON.stringify(merged);
+    if (currentRaw !== newRaw) {
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, newRaw);
+      window.dispatchEvent(new Event('storeadv_products_updated'));
+    }
+  }
+}
+
+// 1. Real-time listener from Supabase (PostgreSQL Realtime)
 if (typeof window !== 'undefined') {
   try {
     subscribeToProductsSupabase((cloudProducts) => {
-      if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
-        const local = loadProductsLocal();
-        const merged = mergeCloudProducts(local, cloudProducts);
-        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(merged));
-        window.dispatchEvent(new Event('storeadv_products_updated'));
-      }
+      applyCloudProductsUpdate(cloudProducts);
     });
   } catch (err) {
     console.warn('Real-time Supabase product listener init:', err);
+  }
+
+  // 2. Real-time listener from Firestore (Firebase Cloud)
+  try {
+    subscribeToProductsCloud((cloudProducts) => {
+      applyCloudProductsUpdate(cloudProducts);
+    });
+  } catch (err) {
+    console.warn('Real-time Firestore product listener init:', err);
   }
 }
 
