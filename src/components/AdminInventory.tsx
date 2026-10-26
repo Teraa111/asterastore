@@ -1214,7 +1214,8 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
               {accountProduct.denominations.map((denom) => {
                 const isDenomActive = denom.isActive !== false;
                 const unsold = getDenomReadyStock(denom);
-                const sold = denom.accountPool?.filter((a) => a.isSold).length || 0;
+                const soldFromOrders = orders.filter((o) => o.status === 'SUCCESS' && o.productType === 'advance_account' && o.itemId === denom.id).length;
+                const sold = soldFromOrders || denom.accountPool?.filter((a) => a.isSold).length || 0;
                 const isOutOfStock = unsold === 0;
 
                 return (
@@ -1322,11 +1323,42 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800/60 text-neutral-300 font-mono">
-                  {accountProduct.denominations.flatMap((denom) =>
-                    (denom.accountPool || []).map((acc) => (
+                  {(() => {
+                    const readyAccounts = accountProduct.denominations.flatMap((denom) =>
+                      (denom.accountPool || [])
+                        .filter((a) => !a.isSold)
+                        .map((acc) => ({ ...acc, denomName: denom.name, denomId: denom.id }))
+                    );
+
+                    if (readyAccounts.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={8} className="py-10 text-center text-neutral-400 font-sans">
+                            <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                              <div className="w-12 h-12 rounded-full bg-neutral-800/80 flex items-center justify-center text-emerald-400 mb-1">
+                                <CheckCircle2 className="w-6 h-6" />
+                              </div>
+                              <p className="text-sm font-bold text-white">Tidak Ada Akun Tersisa di Brankas</p>
+                              <p className="text-xs text-neutral-500 leading-relaxed">
+                                Akun yang telah berhasil dikirimkan ke pembeli otomatis terhapus dari brankas stok admin.
+                              </p>
+                              <button
+                                onClick={() => setShowAddAccountModal(true)}
+                                className="mt-3 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-blue-600/30 flex items-center gap-1.5"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Tambah Stok Baru</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return readyAccounts.map((acc) => (
                       <tr key={acc.id} className="hover:bg-neutral-950/60 transition-colors">
                         <td className="py-3 px-4 font-sans font-semibold text-white whitespace-nowrap">
-                          {denom.name}
+                          {acc.denomName}
                         </td>
                         <td className="py-3 px-4 text-blue-400 select-all">
                           <div className="flex items-center gap-1.5">
@@ -1367,15 +1399,9 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                           Lv. {acc.level}
                         </td>
                         <td className="py-3 px-4 font-sans whitespace-nowrap">
-                          {acc.isSold ? (
-                            <span className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
-                              Terjual ({acc.soldToOrderId || 'Order'})
-                            </span>
-                          ) : (
-                            <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-bold">
-                              Ready Kirim
-                            </span>
-                          )}
+                          <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-bold">
+                            Ready Kirim
+                          </span>
                         </td>
                         <td className="py-3 px-4 font-sans text-neutral-400 text-[11px] max-w-xs truncate">
                           {acc.notes || '-'}
@@ -1383,7 +1409,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                         <td className="py-3 px-4 text-right font-sans whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => handleOpenEditAccount(accountProduct.id, denom.id, acc)}
+                              onClick={() => handleOpenEditAccount(accountProduct.id, acc.denomId, acc)}
                               className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs"
                               title="Ganti Email / Password atau Perbaiki Salah Ketik"
                             >
@@ -1391,7 +1417,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                               <span>Ganti / Edit</span>
                             </button>
                             <button
-                              onClick={() => handleDeleteAccount(accountProduct.id, denom.id, acc.id, acc.email)}
+                              onClick={() => handleDeleteAccount(accountProduct.id, acc.denomId, acc.id, acc.email)}
                               className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/50 text-[11px] transition-all active:scale-95"
                               title="Hapus Akun dari Stok"
                             >
@@ -1400,8 +1426,8 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>

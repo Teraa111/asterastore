@@ -396,3 +396,21 @@ export async function fulfillOrderAtomicSupabase(
     return { success: false, message: err?.message || 'Gagal memproses transaksi atomik' };
   }
 }
+
+/**
+ * Remove/delete a delivered account permanently from Supabase account_vault
+ */
+export async function deleteAccountFromVaultSupabase(email: string): Promise<boolean> {
+  if (!supabase || !email) return false;
+  try {
+    const { error } = await supabase.from('account_vault').delete().eq('email', email.trim());
+    if (error) {
+      console.warn('Delete from Supabase vault warning:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error in deleteAccountFromVaultSupabase:', err);
+    return false;
+  }
+}

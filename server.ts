@@ -139,17 +139,24 @@ async function startServer() {
       if (accProd) {
         const denom = accProd.denominations?.find((d: any) => d.id === order.itemId);
         if (denom && denom.accountPool && denom.accountPool.length > 0) {
-          const readyAcc = denom.accountPool.find((a: any) => !a.isSold);
-          if (readyAcc) {
-            readyAcc.isSold = true;
-            readyAcc.soldAt = nowIso;
-            order.accountDelivered = readyAcc;
+          const readyAccIndex = denom.accountPool.findIndex((a: any) => !a.isSold);
+          if (readyAccIndex !== -1) {
+            const readyAcc = denom.accountPool[readyAccIndex];
+            order.accountDelivered = {
+              email: readyAcc.email,
+              password: readyAcc.password,
+              serverInfo: readyAcc.serverInfo,
+              bindType: readyAcc.bindType,
+              notes: readyAcc.notes,
+            };
             order.serialNumberDelivery = `AST-ACC-${Date.now().toString().slice(-8)}`;
+            // Otomatis hapus akun dari brankas stok admin karena sudah diserahkan ke pembeli
+            denom.accountPool.splice(readyAccIndex, 1);
             denom.stockCount = denom.accountPool.filter((a: any) => !a.isSold).length;
             writeJsonFile(PRODUCTS_FILE, products);
             order.logs.push({
               timestamp: nowTime,
-              message: `Akun Advance Server (${readyAcc.email}) berhasil diserahkan kepada pembeli.`,
+              message: `Akun Advance Server (${readyAcc.email}) berhasil diserahkan kepada pembeli dan dihapus dari brankas stok admin.`,
             });
           }
         }

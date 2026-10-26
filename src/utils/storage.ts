@@ -17,6 +17,7 @@ import {
   subscribeToProductsSupabase,
   isSupabaseConfigured,
   fulfillOrderAtomicSupabase,
+  deleteAccountFromVaultSupabase,
 } from './supabase';
 
 const STORAGE_KEYS = {
@@ -60,10 +61,14 @@ export function sanitizeProductsStock(products: ProductCatalog[]): ProductCatalo
     ...prod,
     denominations: prod.denominations.map((d) => {
       if (d.stockType === 'account_pool') {
-        const ready = getDenomReadyStock(d);
+        // Hapus akun yang sudah terjual dari pool stok admin
+        const readyPool = Array.isArray(d.accountPool)
+          ? d.accountPool.filter((a) => !a.isSold)
+          : [];
         return {
           ...d,
-          stockCount: ready,
+          accountPool: readyPool,
+          stockCount: readyPool.length,
         };
       }
       return d;
@@ -535,6 +540,12 @@ export function calculateMetrics(orders: Order[], products: ProductCatalog[]): S
     }
   }
 
+  // Akun terjual dihitung dari order SUCCESS akun advance server yang telah dikirimkan
+  const deliveredAdvanceOrders = orders.filter(
+    (o) => o.status === 'SUCCESS' && o.productType === 'advance_account'
+  ).length;
+  accountsSold = Math.max(accountsSold, deliveredAdvanceOrders);
+
   return {
     totalRevenue,
     totalProfit,
@@ -677,10 +688,9 @@ export function adminVerifyAndFulfillOrder(
         for (const denom of prod.denominations) {
           if (denom.id === currentOrder.itemId && denom.accountPool) {
             // Cari akun ready yang belum terjual
-            const availableAcc = denom.accountPool.find((a) => !a.isSold);
-            if (availableAcc) {
-              availableAcc.isSold = true;
-              availableAcc.soldToOrderId = currentOrder.id;
+            const availableAccIndex = denom.accountPool.findIndex((a) => !a.isSold);
+            if (availableAccIndex !== -1) {
+              const availableAcc = denom.accountPool[availableAccIndex];
               deliveredAccountData = {
                 email: availableAcc.email,
                 password: availableAcc.password,
@@ -688,8 +698,13 @@ export function adminVerifyAndFulfillOrder(
                 bindType: availableAcc.bindType,
                 notes: availableAcc.notes,
               };
+              // Otomatis hapus akun dari brankas stok admin karena sudah diserahkan ke pembeli
+              denom.accountPool.splice(availableAccIndex, 1);
               denom.stockCount = denom.accountPool.filter((a) => !a.isSold).length;
               updatedProducts = true;
+
+              // Hapus juga dari Supabase Vault jika terkonfigurasi
+              deleteAccountFromVaultSupabase(availableAcc.email).catch(() => {});
             } else {
               // Jika brankas stok habis saat admin verifikasi
               deliveredAccountData = {
@@ -816,18 +831,28 @@ export function adminCancelOrder(orderId: string, reason = 'Dibatalkan oleh Admi
 
   const currentOrder = orders[orderIndex];
   
-  // Jika sebelumnya ada akun yang ter-assign tapi dibatalkan, kembalikan ke stok
+  // Jika sebelumnya ada akun yang ter-assign tapi pesanan dibatalkan, kembalikan ke brankas stok
   if (currentOrder.accountDelivered && currentOrder.productType === 'advance_account') {
     const products = loadProducts();
     let updatedProducts = false;
     for (const prod of products) {
       if (prod.id === currentOrder.productId) {
         for (const denom of prod.denominations) {
-          if (denom.id === currentOrder.itemId && denom.accountPool) {
-            const acc = denom.accountPool.find((a) => a.soldToOrderId === currentOrder.id);
-            if (acc) {
-              acc.isSold = false;
-              acc.soldToOrderId = undefined;
+          if (denom.id === currentOrder.itemId) {
+            if (!denom.accountPool) denom.accountPool = [];
+            const exists = denom.accountPool.some((a) => a.email === currentOrder.accountDelivered!.email);
+            if (!exists) {
+              denom.accountPool.push({
+                id: `acc-restored-${Date.now()}`,
+                email: currentOrder.accountDelivered.email,
+                password: currentOrder.accountDelivered.password,
+                serverInfo: currentOrder.accountDelivered.serverInfo,
+                bindType: currentOrder.accountDelivered.bindType || 'Moonton Sepaket Email',
+                level: 8,
+                notes: 'Akun dikembalikan ke stok karena pesanan dibatalkan.',
+                isSold: false,
+                createdAt: new Date().toISOString(),
+              });
               denom.stockCount = denom.accountPool.filter((a) => !a.isSold).length;
               updatedProducts = true;
             }
