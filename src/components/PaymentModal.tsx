@@ -591,22 +591,22 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
               {/* QRIS Channel View */}
               {isQris && (
                 <div className="flex flex-col items-center">
-                  <div className="p-3 bg-white rounded-2xl shadow-xl border border-neutral-700 max-w-[230px] w-full flex flex-col items-center justify-between relative">
+                  <div className="p-3.5 bg-white rounded-2xl shadow-xl border border-neutral-700 max-w-[280px] w-full flex flex-col items-center justify-between relative">
                     <div className="w-full text-center border-b border-neutral-300 pb-1.5 mb-2">
                       <span className="text-[11px] font-black tracking-wider text-neutral-900 block">
-                        QRIS DANA BISNIS RESMI
+                        QRIS STANDAR NASIONAL (GPN)
                       </span>
-                      <span className="text-[9px] font-bold text-blue-600 block">
+                      <span className="text-[10px] font-bold text-blue-600 block">
                         {paymentConfig.qrisMerchantName}
                       </span>
                     </div>
 
                     {paymentConfig.qrisCustomImageUrl ? (
-                      <div className="w-48 h-48 bg-white flex items-center justify-center p-1 rounded-lg border border-neutral-200">
+                      <div className="w-full bg-white flex items-center justify-center p-1 rounded-lg border border-neutral-200 shadow-inner overflow-hidden">
                         <img
                           src={paymentConfig.qrisCustomImageUrl}
-                          alt="QRIS DANA Bisnis Admin"
-                          className="w-full h-full object-contain"
+                          alt={`QRIS ${paymentConfig.qrisMerchantName}`}
+                          className="w-full max-h-[340px] object-contain rounded"
                         />
                       </div>
                     ) : (

@@ -1,5 +1,5 @@
 import { ProductCatalog, Order, OrderStatus, PromoCode, StoreMetrics, AccountCredential } from '../types/store';
-import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
+import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_PROMO_CODES, HERO_PROMO_IMG, MLBB_COVER_IMG, QRIS_ADMIN_IMG } from '../data/mockData';
 import { generateSerialNumber } from './currency';
 import {
   saveOrderToCloud,
@@ -1143,12 +1143,12 @@ export const DEFAULT_PAYMENT_CONFIG: AdminPaymentConfig = {
   adminPhone: '+62 823-1208-8548',
   adminWhatsappUrl: 'https://wa.me/6282312088548',
   danaNumber: '0823-1208-8548',
-  danaAccountName: 'ASTERA STORE',
+  danaAccountName: 'Aster4, Pakaian (ASTERA STORE)',
   gopayNumber: '0823-1208-8548',
   gopayAccountName: 'ASTERA STORE',
-  qrisMerchantName: 'ASTERA STORE',
-  qrisNmid: 'ID99281726481 (DANA BISNIS ASTERA STORE)',
-  qrisCustomImageUrl: '',
+  qrisMerchantName: 'Aster4, Pakaian',
+  qrisNmid: 'ID1026623708512',
+  qrisCustomImageUrl: QRIS_ADMIN_IMG,
 };
 
 const PAYMENT_CONFIG_KEY = 'storeadv_payment_config_v2';
@@ -1157,7 +1157,18 @@ export function getPaymentConfig(): AdminPaymentConfig {
   try {
     const raw = localStorage.getItem(PAYMENT_CONFIG_KEY);
     if (!raw) return DEFAULT_PAYMENT_CONFIG;
-    return { ...DEFAULT_PAYMENT_CONFIG, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    const merged: AdminPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, ...parsed };
+    // Prioritaskan gambar QRIS resmi jika konfigurasi lokal masih kosong
+    if (!merged.qrisCustomImageUrl || merged.qrisCustomImageUrl.trim() === '') {
+      merged.qrisCustomImageUrl = DEFAULT_PAYMENT_CONFIG.qrisCustomImageUrl;
+    }
+    // Perbarui NMID lama ke NMID resmi Aster4
+    if (!merged.qrisNmid || merged.qrisNmid.includes('ID99281726481')) {
+      merged.qrisNmid = DEFAULT_PAYMENT_CONFIG.qrisNmid;
+      merged.qrisMerchantName = DEFAULT_PAYMENT_CONFIG.qrisMerchantName;
+    }
+    return merged;
   } catch {
     return DEFAULT_PAYMENT_CONFIG;
   }

@@ -1,10 +1,12 @@
 import { ProductCatalog, PaymentChannel, PromoCode, Order } from '../types/store';
 import heroPromoImg from '../assets/images/hero_gaming_promo_1792561230749.jpg';
 import mlbbCoverImg from '../assets/images/game_cover_mlbb_1792561232383.jpg';
+import qrisAdminImg from '../assets/images/qris_admin_astera.jpg';
 
-// Image assets generated via generate_image
+// Image assets generated via generate_image and admin uploads
 export const HERO_PROMO_IMG = heroPromoImg;
 export const MLBB_COVER_IMG = mlbbCoverImg;
+export const QRIS_ADMIN_IMG = qrisAdminImg;
 
 export const INITIAL_PRODUCTS: ProductCatalog[] = [
   {

@@ -2689,11 +2689,11 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                     </div>
 
                     {qrisImageInput ? (
-                      <div className="w-36 h-36 mx-auto bg-white flex items-center justify-center p-1 rounded border border-neutral-200">
+                      <div className="w-full mx-auto bg-white flex items-center justify-center p-1 rounded border border-neutral-200">
                         <img
                           src={qrisImageInput}
                           alt="Preview QRIS DANA"
-                          className="w-full h-full object-contain"
+                          className="w-full max-h-56 object-contain"
                         />
                       </div>
                     ) : (
