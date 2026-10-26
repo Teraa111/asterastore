@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCatalog, Order } from './types/store';
-import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer, fetchProductsFromCloudServer, isMyOrderId } from './utils/storage';
+import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer, fetchProductsFromCloudServer, isMyOrderId, applyCloudProductsUpdate } from './utils/storage';
 import { subscribeToProductsSupabase } from './utils/supabase';
+import { subscribeToProductsCloud } from './utils/firebase';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
 import { GameCard } from './components/GameCard';
@@ -55,9 +56,16 @@ export default function App() {
     window.addEventListener('storeadv_products_updated', handleProductsUpdate);
     window.addEventListener('storeadv_orders_updated', handleOrdersUpdate);
 
-    // Supabase Realtime channel subscription for instant multi-device stock updates
+    // 1. Supabase Realtime channel subscription for instant multi-device stock & price updates
     const unsubscribeSupabase = subscribeToProductsSupabase((freshProducts) => {
-      setProducts(freshProducts);
+      applyCloudProductsUpdate(freshProducts);
+      setProducts(loadProducts());
+    });
+
+    // 2. Firestore Realtime subscription for cross-device & incognito compatibility
+    const unsubscribeFirestore = subscribeToProductsCloud((freshProducts) => {
+      applyCloudProductsUpdate(freshProducts);
+      setProducts(loadProducts());
     });
 
     const poll = setInterval(() => {
@@ -71,6 +79,9 @@ export default function App() {
       window.removeEventListener('storeadv_orders_updated', handleOrdersUpdate);
       if (unsubscribeSupabase) {
         unsubscribeSupabase();
+      }
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
       }
     };
   }, []);

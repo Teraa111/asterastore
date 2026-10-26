@@ -250,9 +250,10 @@ export function loadProductsLocal(): ProductCatalog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     if (!raw) {
-      const sanitized = sanitizeProductsStock(INITIAL_PRODUCTS);
-      saveProducts(sanitized);
-      return sanitized;
+      // Return initial products in memory only.
+      // CRITICAL: DO NOT call saveProducts() here! A fresh incognito session or new visitor
+      // must NEVER overwrite cloud database prices with default initial prices!
+      return sanitizeProductsStock(INITIAL_PRODUCTS);
     }
     const parsed: ProductCatalog[] = JSON.parse(raw);
     return sanitizeProductsStock(parsed);
@@ -335,7 +336,7 @@ export function saveProducts(products: ProductCatalog[]): void {
   syncAllProductsToCloud(sanitized).catch(() => {});
 }
 
-function applyCloudProductsUpdate(cloudProducts: ProductCatalog[]) {
+export function applyCloudProductsUpdate(cloudProducts: ProductCatalog[]) {
   if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
     const local = loadProductsLocal();
     const merged = mergeCloudProducts(local, cloudProducts);

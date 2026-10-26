@@ -80,7 +80,14 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
       if (refreshed) {
         const oldStock = getDenomReadyStock(selectedItem);
         const newStock = getDenomReadyStock(refreshed);
-        if (oldStock !== newStock || refreshed.isActive !== selectedItem.isActive) {
+        const hasPriceOrSpecChanged =
+          refreshed.priceSell !== selectedItem.priceSell ||
+          refreshed.priceBase !== selectedItem.priceBase ||
+          refreshed.strikePrice !== selectedItem.strikePrice ||
+          refreshed.bonusText !== selectedItem.bonusText ||
+          refreshed.name !== selectedItem.name;
+
+        if (oldStock !== newStock || refreshed.isActive !== selectedItem.isActive || hasPriceOrSpecChanged) {
           setSelectedItem(refreshed);
         }
       }

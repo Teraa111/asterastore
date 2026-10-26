@@ -563,17 +563,26 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   };
 
   // Save Item Price Edit
-  const handleSaveItemEdit = (e: React.FormEvent) => {
+  const handleSaveItemEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
+
+    const cleanSell = Math.max(1000, Number(editingItem.item.priceSell) || 0);
+    const cleanBase = Math.max(0, Number(editingItem.item.priceBase) || 0);
+
+    const sanitizedItem = {
+      ...editingItem.item,
+      priceSell: cleanSell,
+      priceBase: cleanBase,
+    };
 
     const updated = products.map((p) => {
       if (p.id === editingItem.productId) {
         return {
           ...p,
           denominations: p.denominations.map((d) => {
-            if (d.id === editingItem.item.id) {
-              return editingItem.item;
+            if (d.id === sanitizedItem.id) {
+              return sanitizedItem;
             }
             return d;
           }),
@@ -585,7 +594,17 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     saveProducts(updated);
     setProducts(updated);
     setEditingItem(null);
-    showToast('Perubahan produk & status berhasil disimpan ke database!');
+
+    try {
+      const syncRes = await syncAllProductsToCloud(updated);
+      if (syncRes.success) {
+        showToast(`✅ Harga ${sanitizedItem.name} berhasil diubah jadi ${formatIDR(cleanSell)} dan tersinkron ke cloud!`, 'success');
+      } else {
+        showToast(`Harga tersimpan lokal. Catatan cloud: ${syncRes.supabaseError || syncRes.firestoreError || 'Menunggu koneksi'}`, 'warning');
+      }
+    } catch {
+      showToast('Perubahan produk & harga berhasil disimpan ke database!', 'success');
+    }
   };
 
   // Toggle Entire Product Status (Matikan Penjualan Toko / Buka Kembali)
