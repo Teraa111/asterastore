@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCatalog, Order } from './types/store';
 import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer, fetchProductsFromCloudServer } from './utils/storage';
+import { subscribeToProductsSupabase } from './utils/supabase';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
 import { GameCard } from './components/GameCard';
@@ -42,6 +43,7 @@ export default function App() {
     setProducts(loadProducts());
     setRecentOrders(loadOrders());
     fetchOrdersFromServer();
+    fetchProductsFromCloudServer().catch(() => {});
 
     const handleProductsUpdate = () => {
       setProducts(loadProducts());
@@ -53,15 +55,23 @@ export default function App() {
     window.addEventListener('storeadv_products_updated', handleProductsUpdate);
     window.addEventListener('storeadv_orders_updated', handleOrdersUpdate);
 
+    // Supabase Realtime channel subscription for instant multi-device stock updates
+    const unsubscribeSupabase = subscribeToProductsSupabase((freshProducts) => {
+      setProducts(freshProducts);
+    });
+
     const poll = setInterval(() => {
       fetchOrdersFromServer();
       fetchProductsFromCloudServer().catch(() => {});
-    }, 3000);
+    }, 4000);
 
     return () => {
       clearInterval(poll);
       window.removeEventListener('storeadv_products_updated', handleProductsUpdate);
       window.removeEventListener('storeadv_orders_updated', handleOrdersUpdate);
+      if (unsubscribeSupabase) {
+        unsubscribeSupabase();
+      }
     };
   }, []);
 

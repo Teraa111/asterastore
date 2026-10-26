@@ -32,6 +32,9 @@ import {
   addAccountToVaultSupabase,
   checkSupabaseStatus,
   SUPABASE_SETUP_SQL,
+  getSupabaseConfig,
+  setCustomSupabaseConfig,
+  refreshSupabaseClient,
 } from '../utils/supabase';
 import { formatIDR, formatNumber } from '../utils/currency';
 import { INITIAL_PRODUCTS, HERO_PROMO_IMG, MLBB_COVER_IMG } from '../data/mockData';
@@ -176,6 +179,18 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     } finally {
       setIsCheckingSupabase(false);
     }
+  };
+
+  const [customSbUrl, setCustomSbUrl] = useState(() => getSupabaseConfig().url);
+  const [customSbKey, setCustomSbKey] = useState(() => getSupabaseConfig().anonKey);
+  const [showCustomConfigForm, setShowCustomConfigForm] = useState(false);
+
+  const handleSaveCustomSupabase = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCustomSupabaseConfig(customSbUrl.trim(), customSbKey.trim());
+    refreshSupabaseClient();
+    showToast('Kredensial Supabase berhasil disimpan! Mengecek koneksi...', 'success');
+    runSupabaseCheck();
   };
 
   // Status Action Toast Notification
@@ -3740,11 +3755,71 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
             {/* Status Live Diagnostic */}
             <div className="mb-5 p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-neutral-400 font-medium">Kredensial Vercel/Env:</span>
-                <span className={isSupabaseConfigured() ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                  {isSupabaseConfigured() ? '✓ VITE_SUPABASE_URL Terdeteksi' : '⚠️ Belum dikonfigurasi di Vercel'}
-                </span>
+                <span className="text-neutral-400 font-medium">Kredensial Database:</span>
+                <div className="flex items-center gap-2">
+                  <span className={isSupabaseConfigured() ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                    {isSupabaseConfigured() ? (getSupabaseConfig().isCustom ? '✓ Terhubung (Kredensial Manual)' : '✓ Terhubung (Env Vercel)') : '⚠️ Belum Dikonfigurasi'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomConfigForm(!showCustomConfigForm)}
+                    className="text-[10px] text-teal-400 underline hover:text-teal-300"
+                  >
+                    {showCustomConfigForm ? 'Tutup' : 'Edit URL / Key'}
+                  </button>
+                </div>
               </div>
+
+              {showCustomConfigForm && (
+                <form onSubmit={handleSaveCustomSupabase} className="p-3 my-2 rounded-xl bg-neutral-900 border border-teal-800/60 space-y-2.5">
+                  <p className="text-[11px] text-teal-300 font-semibold">
+                    Atur URL & Anon Key Supabase secara langsung (Berguna untuk GitHub Pages atau jika Env Vercel belum aktif):
+                  </p>
+                  <div>
+                    <label className="text-[10px] text-neutral-400 block mb-1">Project URL:</label>
+                    <input
+                      type="text"
+                      placeholder="https://xyzcompany.supabase.co"
+                      value={customSbUrl}
+                      onChange={(e) => setCustomSbUrl(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-neutral-950 border border-neutral-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-neutral-400 block mb-1">Anon / Public Key:</label>
+                    <input
+                      type="password"
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      value={customSbKey}
+                      onChange={(e) => setCustomSbKey(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-neutral-950 border border-neutral-700 rounded-lg text-white font-mono text-[11px] focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomSupabaseConfig('', '');
+                        setCustomSbUrl('');
+                        setCustomSbKey('');
+                        refreshSupabaseClient();
+                        showToast('Kredensial manual dihapus, kembali ke default env.', 'warning');
+                        runSupabaseCheck();
+                      }}
+                      className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-[11px] rounded-lg"
+                    >
+                      Reset Env
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white font-bold text-[11px] rounded-lg shadow-sm"
+                    >
+                      Simpan & Hubungkan
+                    </button>
+                  </div>
+                </form>
+              )}
+
               <div className="flex items-center justify-between">
                 <span className="text-neutral-400 font-medium">Tabel 'products' Supabase:</span>
                 <span

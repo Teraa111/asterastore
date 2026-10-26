@@ -18,6 +18,9 @@ import {
   isSupabaseConfigured,
   fulfillOrderAtomicSupabase,
   deleteAccountFromVaultSupabase,
+  saveOrderToSupabase,
+  fetchOrdersFromSupabase,
+  getOrderFromSupabase,
 } from './supabase';
 
 const STORAGE_KEYS = {
@@ -92,9 +95,10 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
       const updatedDenoms = c.denominations.map((cd) => {
         const ed = denomMap.get(cd.id);
         const hasLocalPool = ed && Array.isArray(ed.accountPool) && ed.accountPool.length > 0;
-        const realStock = hasLocalPool
-          ? ed.accountPool.filter((a: any) => !a.isSold).length
-          : (typeof cd.stockCount === 'number' ? cd.stockCount : (ed?.stockCount ?? 0));
+        // Cloud stockCount from Supabase is authoritative
+        const realStock = typeof cd.stockCount === 'number'
+          ? cd.stockCount
+          : (hasLocalPool ? ed.accountPool.filter((a: any) => !a.isSold).length : 0);
 
         return {
           ...cd,
@@ -159,8 +163,11 @@ export async function fetchProductsFromCloudServer(): Promise<ProductCatalog[]> 
       }
       return merged;
     } else {
-      // If cloud is completely empty but local has items/stocks, auto-upload local to cloud!
-      syncAllProductsToCloud(local).catch(() => {});
+      // Only auto-upload if current user is an authenticated Admin
+      const isAdmin = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('storeadv_admin_session') === 'true';
+      if (isAdmin) {
+        syncAllProductsToCloud(local).catch(() => {});
+      }
     }
   } catch (err) {
     console.warn('fetchProductsFromCloudServer warning:', err);
@@ -327,10 +334,23 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
   if (isSyncing) return loadOrdersLocal();
   isSyncing = true;
   try {
-    // 1. Fetch from Firestore Cloud Database (works across devices & Vercel)
-    const cloudOrders = await fetchOrdersFromCloud();
+    // 1. Fetch from Supabase Cloud Database (Primary cross-device source of truth)
+    let supabaseOrders: Order[] = [];
+    try {
+      supabaseOrders = await fetchOrdersFromSupabase();
+    } catch (err) {
+      console.warn('Supabase fetchOrders warning:', err);
+    }
 
-    // 2. Fetch from Express /api/orders (if available)
+    // 2. Fetch from Firestore Cloud Database (Secondary cross-device)
+    let cloudOrders: Order[] = [];
+    try {
+      cloudOrders = await fetchOrdersFromCloud();
+    } catch (err) {
+      console.warn('Firestore fetchOrders warning:', err);
+    }
+
+    // 3. Fetch from Express /api/orders (if available)
     let serverOrders: Order[] = [];
     try {
       const res = await fetch('/api/orders');
@@ -345,7 +365,8 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
     const map = new Map<string, Order>();
     for (const o of local) map.set(o.id, o);
     for (const o of serverOrders) map.set(o.id, o);
-    for (const o of cloudOrders) map.set(o.id, o); // Cloud takes priority
+    for (const o of cloudOrders) map.set(o.id, o);
+    for (const o of supabaseOrders) map.set(o.id, o); // Supabase orders merged
 
     const merged = Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -379,7 +400,7 @@ function loadOrdersLocal(): Order[] {
 }
 
 export function loadOrders(): Order[] {
-  // Trigger background sync from Firestore and server
+  // Trigger background sync from Supabase, Firestore, and server
   fetchOrdersFromServer().catch(() => {});
   return loadOrdersLocal();
 }
@@ -394,12 +415,17 @@ export function saveOrders(orders: Order[]): void {
 }
 
 export async function syncOrderToServer(order: Order): Promise<void> {
-  // 1. Save to Cloud Firestore (Primary cross-device source of truth)
-  saveOrderToCloud(order).catch((err) => {
-    console.error('Failed to sync order to Cloud Firestore:', err);
+  // 1. Save to Supabase Cloud Database (PostgreSQL)
+  saveOrderToSupabase(order).catch((err) => {
+    console.warn('Failed to sync order to Supabase:', err);
   });
 
-  // 2. Also POST to local Express server API
+  // 2. Save to Cloud Firestore
+  saveOrderToCloud(order).catch((err) => {
+    console.warn('Failed to sync order to Cloud Firestore:', err);
+  });
+
+  // 3. Also POST to local Express server API
   fetch('/api/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -410,7 +436,21 @@ export async function syncOrderToServer(order: Order): Promise<void> {
 export async function searchOrdersOnline(query: string): Promise<Order[]> {
   const cleanQ = query.trim().replace(/^#/, '');
 
-  // 1. Direct Cloud Firestore lookup by Invoice ID
+  // 1. Direct Supabase Cloud lookup by Invoice ID
+  try {
+    const sbMatch = await getOrderFromSupabase(cleanQ);
+    if (sbMatch) {
+      const local = loadOrdersLocal();
+      const map = new Map<string, Order>();
+      for (const o of local) map.set(o.id, o);
+      map.set(sbMatch.id, sbMatch);
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(Array.from(map.values())));
+      window.dispatchEvent(new Event('storeadv_orders_updated'));
+      return [sbMatch];
+    }
+  } catch {}
+
+  // 2. Direct Cloud Firestore lookup by Invoice ID
   try {
     const directMatch = await getOrderFromCloud(cleanQ);
     if (directMatch) {
@@ -752,6 +792,9 @@ export function adminVerifyAndFulfillOrder(
 
   orders[orderIndex] = successOrder;
   saveOrders(orders);
+
+  // Sync verification & fulfillment to Supabase Cloud Database (PostgreSQL)
+  saveOrderToSupabase(successOrder).catch(() => {});
 
   // Sync verification & fulfillment to Firestore Cloud Database
   updateOrderInCloud(orderId, {
