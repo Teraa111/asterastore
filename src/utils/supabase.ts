@@ -57,6 +57,12 @@ const initSupabaseClient = (): SupabaseClient | null => {
         persistSession: true,
         autoRefreshToken: true,
       },
+      global: {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      },
     });
   } catch (err) {
     console.warn('Failed to initialize Supabase client:', err);

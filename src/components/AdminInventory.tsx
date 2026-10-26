@@ -4,6 +4,7 @@ import {
   loadProducts,
   saveProducts,
   loadOrders,
+  loadAdminOrders,
   saveOrders,
   fetchOrdersFromServer,
   loadPromos,
@@ -206,7 +207,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   // Sync from storage
   const refreshData = () => {
     setProducts(loadProducts());
-    setOrders(loadOrders());
+    setOrders(loadAdminOrders());
     setPromos(loadPromos());
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCatalog, Order } from './types/store';
-import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer, fetchProductsFromCloudServer } from './utils/storage';
+import { loadProducts, loadOrders, getOrderStatusDetails, fetchOrdersFromServer, fetchProductsFromCloudServer, isMyOrderId } from './utils/storage';
 import { subscribeToProductsSupabase } from './utils/supabase';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
@@ -86,9 +86,10 @@ export default function App() {
   }, [products]);
 
 
-  // Find latest pending or waiting verification order to alert user
+  // Find latest pending or waiting verification order created on THIS device only (Privacy protection)
   const activePendingOrder = recentOrders.find(
     (o) =>
+      isMyOrderId(o.id) &&
       (o.status === 'WAITING_VERIFICATION' || o.status === 'PENDING_PAYMENT') &&
       o.id !== dismissedOrderBannerId
   );

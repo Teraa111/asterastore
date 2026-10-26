@@ -27,6 +27,7 @@ const STORAGE_KEYS = {
   PRODUCTS: 'storeadv_products_v5',
   ORDERS: 'storeadv_orders_v5',
   PROMOS: 'storeadv_promos_v3',
+  MY_ORDER_IDS: 'storeadv_my_order_ids_v1',
 };
 
 // Cleanup old mock keys
@@ -36,6 +37,63 @@ try {
   localStorage.removeItem('storeadv_products_v3');
 } catch {
   // ignore
+}
+
+/**
+ * Check if the current session is an authenticated Admin
+ */
+export function isAdminSession(): boolean {
+  try {
+    return typeof sessionStorage !== 'undefined' && sessionStorage.getItem('storeadv_admin_session') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get all order IDs that were created on this browser/device
+ */
+export function getMyOrderIds(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.MY_ORDER_IDS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save an order ID to the current device's order list
+ */
+export function saveMyOrderId(orderId: string): void {
+  if (!orderId) return;
+  try {
+    const ids = getMyOrderIds();
+    const cleanId = orderId.trim();
+    if (!ids.includes(cleanId)) {
+      ids.unshift(cleanId);
+      localStorage.setItem(STORAGE_KEYS.MY_ORDER_IDS, JSON.stringify(ids.slice(0, 50)));
+    }
+  } catch {}
+}
+
+/**
+ * Check if an order ID belongs to the current browser/device
+ */
+export function isMyOrderId(orderId: string): boolean {
+  if (!orderId) return false;
+  return getMyOrderIds().includes(orderId.trim());
+}
+
+/**
+ * Load ONLY orders that belong to this device (for regular customers)
+ */
+export function getMyOrders(): Order[] {
+  const myIds = new Set(getMyOrderIds());
+  const all = loadOrdersLocal();
+  return all.filter((o) => myIds.has(o.id));
 }
 
 /**
@@ -49,29 +107,40 @@ export function getDenomReadyStock(denom: {
   if (denom.stockType === 'auto_inject') {
     return -1;
   }
-  // If account pool exists and is populated, the actual unsold count is the definitive stock
+  // If account pool exists and is populated with accounts, the actual unsold count is the definitive stock
   if (Array.isArray(denom.accountPool) && denom.accountPool.length > 0) {
     return denom.accountPool.filter((a) => !a.isSold).length;
   }
+  // Authoritative stockCount from Supabase
   return typeof denom.stockCount === 'number' && denom.stockCount >= 0 ? denom.stockCount : 0;
 }
 
 /**
- * Ensure stockCount on every denomination matches its real accountPool count
+ * Ensure stockCount on every denomination matches its real accountPool count,
+ * BUT critically preserve cloud stockCount if accountPool is empty (for public visitors/Hola browser)
  */
 export function sanitizeProductsStock(products: ProductCatalog[]): ProductCatalog[] {
   return products.map((prod) => ({
     ...prod,
     denominations: prod.denominations.map((d) => {
       if (d.stockType === 'account_pool') {
-        // Hapus akun yang sudah terjual dari pool stok admin
         const readyPool = Array.isArray(d.accountPool)
           ? d.accountPool.filter((a) => !a.isSold)
           : [];
+        // If there is an active accountPool (e.g. on Admin device), calculate from pool
+        if (readyPool.length > 0) {
+          return {
+            ...d,
+            accountPool: readyPool,
+            stockCount: readyPool.length,
+          };
+        }
+        // CRITICAL BUGFIX: If accountPool is empty (public visitor, Hola browser, mobile HP),
+        // PRESERVE the cloud stockCount! Never reset it to 0!
         return {
           ...d,
-          accountPool: readyPool,
-          stockCount: readyPool.length,
+          accountPool: [],
+          stockCount: typeof d.stockCount === 'number' && d.stockCount >= 0 ? d.stockCount : 0,
         };
       }
       return d;
@@ -95,14 +164,14 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
       const updatedDenoms = c.denominations.map((cd) => {
         const ed = denomMap.get(cd.id);
         const hasLocalPool = ed && Array.isArray(ed.accountPool) && ed.accountPool.length > 0;
-        // Cloud stockCount from Supabase is authoritative
+        // Cloud stockCount from Supabase is authoritative across all devices
         const realStock = typeof cd.stockCount === 'number'
           ? cd.stockCount
           : (hasLocalPool ? ed.accountPool.filter((a: any) => !a.isSold).length : 0);
 
         return {
           ...cd,
-          accountPool: hasLocalPool ? ed.accountPool : (Array.isArray(cd.accountPool) ? cd.accountPool : []),
+          accountPool: hasLocalPool ? ed.accountPool : [],
           stockCount: realStock,
         };
       });
@@ -303,15 +372,17 @@ if (typeof window !== 'undefined') {
 // Background sync promise flag
 let isSyncing = false;
 
-// Setup real-time listener from Firestore so any device receives orders instantly
+// Setup real-time listener from Firestore ONLY for authenticated Admin
 if (typeof window !== 'undefined') {
   try {
     subscribeToOrdersCloud((cloudOrders) => {
+      // Only process global cloud orders if user is Admin
+      if (!isAdminSession()) return;
       if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
         const local = loadOrdersLocal();
         const map = new Map<string, Order>();
         for (const o of local) map.set(o.id, o);
-        for (const o of cloudOrders) map.set(o.id, o); // Firestore takes precedence
+        for (const o of cloudOrders) map.set(o.id, o);
 
         const merged = Array.from(map.values()).sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -330,7 +401,50 @@ if (typeof window !== 'undefined') {
   }
 }
 
+/**
+ * Fetch and refresh status of orders that belong to THIS device only (Buyer privacy protection)
+ */
+export async function fetchMyOrdersFromServer(): Promise<Order[]> {
+  const myIds = getMyOrderIds();
+  if (myIds.length === 0) return [];
+
+  try {
+    const updatedMyOrders: Order[] = [];
+    for (const id of myIds) {
+      try {
+        const sbOrder = await getOrderFromSupabase(id);
+        if (sbOrder) {
+          updatedMyOrders.push(sbOrder);
+        } else {
+          const cloudOrder = await getOrderFromCloud(id);
+          if (cloudOrder) updatedMyOrders.push(cloudOrder);
+        }
+      } catch {}
+    }
+
+    if (updatedMyOrders.length > 0) {
+      const local = loadOrdersLocal();
+      const map = new Map<string, Order>();
+      for (const o of local) map.set(o.id, o);
+      for (const o of updatedMyOrders) map.set(o.id, o);
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(Array.from(map.values())));
+      window.dispatchEvent(new Event('storeadv_orders_updated'));
+    }
+  } catch (err) {
+    console.warn('fetchMyOrdersFromServer error:', err);
+  }
+  return getMyOrders();
+}
+
+/**
+ * Global order fetching: ONLY for Admin. Normal customers only fetch their own orders.
+ */
 export async function fetchOrdersFromServer(): Promise<Order[]> {
+  // STRICT PRIVACY PROTECTION: Regular buyers must NEVER download other people's orders!
+  if (!isAdminSession()) {
+    return fetchMyOrdersFromServer();
+  }
+
   if (isSyncing) return loadOrdersLocal();
   isSyncing = true;
   try {
@@ -366,7 +480,7 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
     for (const o of local) map.set(o.id, o);
     for (const o of serverOrders) map.set(o.id, o);
     for (const o of cloudOrders) map.set(o.id, o);
-    for (const o of supabaseOrders) map.set(o.id, o); // Supabase orders merged
+    for (const o of supabaseOrders) map.set(o.id, o);
 
     const merged = Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -387,7 +501,7 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
   return loadOrdersLocal();
 }
 
-function loadOrdersLocal(): Order[] {
+export function loadOrdersLocal(): Order[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
     if (!raw) {
@@ -399,10 +513,25 @@ function loadOrdersLocal(): Order[] {
   }
 }
 
-export function loadOrders(): Order[] {
-  // Trigger background sync from Supabase, Firestore, and server
+/**
+ * Load orders for Admin view (returns all store orders)
+ */
+export function loadAdminOrders(): Order[] {
   fetchOrdersFromServer().catch(() => {});
   return loadOrdersLocal();
+}
+
+/**
+ * Universal loadOrders: If Admin, returns all orders. If Buyer, returns ONLY their own orders!
+ */
+export function loadOrders(): Order[] {
+  if (isAdminSession()) {
+    fetchOrdersFromServer().catch(() => {});
+    return loadOrdersLocal();
+  }
+  // Buyer: Only load their own orders
+  fetchMyOrdersFromServer().catch(() => {});
+  return getMyOrders();
 }
 
 export function saveOrders(orders: Order[]): void {
@@ -466,35 +595,21 @@ export async function searchOrdersOnline(query: string): Promise<Order[]> {
     // fallback
   }
 
-  // 2. Fetch all cloud orders
-  try {
-    const cloudOrders = await fetchOrdersFromCloud();
-    if (cloudOrders.length > 0) {
-      const local = loadOrdersLocal();
-      const map = new Map<string, Order>();
-      for (const o of local) map.set(o.id, o);
-      for (const o of cloudOrders) map.set(o.id, o);
-      const merged = Array.from(map.values());
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(merged));
-      window.dispatchEvent(new Event('storeadv_orders_updated'));
-    }
-  } catch {
-    // fallback
-  }
-
-  // 3. Search via Express API if running
+  // 3. Search via Express API if running (targeted)
   try {
     const res = await fetch(`/api/orders/search?q=${encodeURIComponent(cleanQ)}`);
     if (res.ok) {
       const found: Order[] = await res.json();
       if (Array.isArray(found) && found.length > 0) {
-        const local = loadOrdersLocal();
-        const map = new Map<string, Order>();
-        for (const o of local) map.set(o.id, o);
-        for (const o of found) map.set(o.id, o);
-        const merged = Array.from(map.values());
-        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(merged));
-        window.dispatchEvent(new Event('storeadv_orders_updated'));
+        if (isAdminSession()) {
+          const local = loadOrdersLocal();
+          const map = new Map<string, Order>();
+          for (const o of local) map.set(o.id, o);
+          for (const o of found) map.set(o.id, o);
+          const merged = Array.from(map.values());
+          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(merged));
+          window.dispatchEvent(new Event('storeadv_orders_updated'));
+        }
         return found;
       }
     }
@@ -502,8 +617,8 @@ export async function searchOrdersOnline(query: string): Promise<Order[]> {
     // Fallback to local
   }
 
-  // 4. Local filter fallback
-  const all = loadOrdersLocal();
+  // 4. Local filter: For admin, filter all orders; for customer, only filter own orders
+  const all = isAdminSession() ? loadOrdersLocal() : getMyOrders();
   const lowerQ = cleanQ.toLowerCase();
   const digits = lowerQ.replace(/[^0-9]/g, '');
   return all.filter((o) => {
