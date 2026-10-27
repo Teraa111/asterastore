@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, ShieldCheck, Zap, UserCheck, Coins, Key } from 'lucide-react';
-import { getStoreAssets } from '../utils/storage';
+import { getStoreAssets, syncStoreAssetsFromCloud } from '../utils/storage';
 
 interface HeroBannerProps {
   onSelectProduct: (productId: 'mlbb-advance-server' | 'mlbb-bbcoin') => void;
@@ -18,6 +18,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       setHeroImg(getStoreAssets().heroBannerImg);
     };
     window.addEventListener('storeadv_assets_updated', handleUpdate);
+
+    // Initial sync from cloud database
+    syncStoreAssetsFromCloud()
+      .then((cloud) => {
+        if (cloud?.heroBannerImg) {
+          setHeroImg(cloud.heroBannerImg);
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener('storeadv_assets_updated', handleUpdate);
   }, []);
 

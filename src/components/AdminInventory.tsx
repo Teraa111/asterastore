@@ -871,16 +871,37 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     }
   };
 
-  const handleSaveStoreAssets = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveStoreAssets = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
+    const normalizeImg = (val: string) => {
+      let cleaned = val.trim().replace(/\\/g, '/');
+      if (cleaned.startsWith('src/assets/images/')) {
+        cleaned = '/' + cleaned.replace(/^src\//, '');
+      } else if (cleaned.startsWith('/src/assets/images/')) {
+        cleaned = cleaned.replace(/^\/src\//, '/');
+      } else if (cleaned.startsWith('assets/images/')) {
+        cleaned = '/' + cleaned;
+      }
+      return cleaned;
+    };
+
+    const cleanHero = normalizeImg(heroInput) || DEFAULT_STORE_ASSETS.heroBannerImg;
+    const cleanAccount = normalizeImg(accountCoverInput) || DEFAULT_STORE_ASSETS.accountProductImg;
+    const cleanBbcoin = normalizeImg(bbcoinCoverInput) || DEFAULT_STORE_ASSETS.bbcoinProductImg;
+    const cleanLogo = normalizeImg(storeLogoInput);
+
+    if (cleanHero !== heroInput) setHeroInput(cleanHero);
+    if (cleanAccount !== accountCoverInput) setAccountCoverInput(cleanAccount);
+    if (cleanBbcoin !== bbcoinCoverInput) setBbcoinCoverInput(cleanBbcoin);
+
     const updated = saveStoreAssets({
-      heroBannerImg: heroInput.trim() || DEFAULT_STORE_ASSETS.heroBannerImg,
-      accountProductImg: accountCoverInput.trim() || DEFAULT_STORE_ASSETS.accountProductImg,
-      bbcoinProductImg: bbcoinCoverInput.trim() || DEFAULT_STORE_ASSETS.bbcoinProductImg,
-      storeLogoImg: storeLogoInput.trim(),
+      heroBannerImg: cleanHero,
+      accountProductImg: cleanAccount,
+      bbcoinProductImg: cleanBbcoin,
+      storeLogoImg: cleanLogo,
     });
     setStoreAssets(updated);
-    showToast('✅ Semua Foto & Banner Toko ASTERA STORE berhasil disimpan & disinkronkan ke cloud!', 'success');
+    showToast('✅ Perubahan banner & foto toko berhasil disimpan dan disinkronkan ke cloud!', 'success');
   };
 
   return (
@@ -2252,6 +2273,21 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                     className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-purple-500 font-mono"
                   />
                 </div>
+
+                {/* Tombol Simpan Perubahan Banner */}
+                <div className="pt-2 flex items-center justify-between gap-3 border-t border-neutral-800/70">
+                  <span className="text-[11px] text-neutral-400">
+                    💡 Klik simpan untuk langsung menerapkan gambar banner promo utama
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSaveStoreAssets(e)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/30 transition-all cursor-pointer active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Simpan Perubahan Banner</span>
+                  </button>
+                </div>
               </div>
 
               {/* Card 2: Cover Sampul Akun Advance Server */}
@@ -2504,10 +2540,11 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white shadow-lg shadow-purple-600/30 transition-all"
+                  onClick={(e) => handleSaveStoreAssets(e)}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white shadow-lg shadow-purple-600/30 transition-all cursor-pointer active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Simpan Semua Foto & Banner Toko</span>
+                  <span>Simpan Perubahan Banner & Semua Foto Toko</span>
                 </button>
               </div>
             </div>
