@@ -6,93 +6,35 @@ interface LogoProps {
 }
 
 /**
- * Authentic DANA Official Brand Logo SVG
- * Using official DANA blue (#118EEA), white typography and accent
+ * Authentic DANA Official Brand Logo
+ * Using uploaded official asset: /assets/aistudio/images_8db3e262.png
  */
 export const DanaLogo: React.FC<LogoProps> = ({ className = 'h-6' }) => {
   return (
-    <div className={`inline-flex items-center justify-center shrink-0 ${className}`}>
-      <svg
-        viewBox="0 0 140 40"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-full w-auto max-h-8"
-        aria-label="Logo Resmi DANA"
-      >
-        {/* DANA Rounded Blue Background Plaque */}
-        <rect width="140" height="40" rx="8" fill="#118EEA" />
-        
-        {/* Authentic DANA Typography & Identity */}
-        <g fill="#FFFFFF">
-          {/* Letter D */}
-          <path
-            d="M26 12H35.5C41.299 12 46 16.701 46 22.5C46 28.299 41.299 33 35.5 33H26V12ZM31.6 28H35.2C38.4 28 40.5 25.6 40.5 22.5C40.5 19.4 38.4 17 35.2 17H31.6V28Z"
-          />
-          {/* Letter A */}
-          <path
-            d="M58.2 12H64.8L73.5 33H67.6L65.9 28.5H57.1L55.4 33H49.5L58.2 12ZM64.3 24.2L61.5 16.8L58.7 24.2H64.3Z"
-          />
-          {/* Letter N */}
-          <path
-            d="M78 12H83.8L93.2 26.2V12H98.6V33H93L83.4 18.5V33H78V12Z"
-          />
-          {/* Letter A */}
-          <path
-            d="M109.2 12H115.8L124.5 33H118.6L116.9 28.5H108.1L106.4 33H100.5L109.2 12ZM115.3 24.2L112.5 16.8L109.7 24.2H115.3Z"
-          />
-        </g>
-        
-        {/* Small Indonesia Trust Emblem */}
-        <circle cx="16" cy="20" r="4.5" fill="#FFFFFF" />
-        <path
-          d="M14.5 20L15.8 21.3L18 19"
-          stroke="#118EEA"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+    <div className={`inline-flex items-center justify-center shrink-0 bg-white rounded-md px-1.5 py-0.5 ${className}`}>
+      <img
+        src="/assets/aistudio/images_8db3e262.png"
+        alt="Logo Resmi DANA"
+        className="h-full w-auto max-h-7 object-contain"
+        loading="lazy"
+      />
     </div>
   );
 };
 
 /**
- * Authentic GoPay Official Brand Logo SVG
- * Using official GoPay cyan/blue (#00AED6) emblem and typography
+ * Authentic GoPay Official Brand Logo
+ * Using uploaded official asset: /assets/aistudio/2oYgiVPUa27XyepRpUf6O2SEcnG_cover_294_4c24c3d3.png
  */
 export const GopayLogo: React.FC<LogoProps> = ({ className = 'h-6' }) => {
   return (
-    <div className={`inline-flex items-center justify-center shrink-0 ${className}`}>
-      <svg
-        viewBox="0 0 140 40"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-full w-auto max-h-8"
-        aria-label="Logo Resmi GoPay"
-      >
-        {/* GoPay Rounded Brand Background Plaque */}
-        <rect width="140" height="40" rx="8" fill="#00AED6" />
-
-        {/* GoPay Iconic Stylized Circular Ring Emblem */}
-        <g transform="translate(12, 10)">
-          <circle cx="10" cy="10" r="8.5" stroke="#FFFFFF" strokeWidth="3" />
-          <circle cx="10" cy="10" r="3.2" fill="#FFFFFF" />
-        </g>
-
-        {/* Official "gopay" bold brand lettering */}
-        <g fill="#FFFFFF">
-          <text
-            x="40"
-            y="26"
-            fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-            fontSize="18"
-            fontWeight="900"
-            letterSpacing="-0.5px"
-          >
-            gopay
-          </text>
-        </g>
-      </svg>
+    <div className={`inline-flex items-center justify-center shrink-0 bg-white rounded-md px-1.5 py-0.5 ${className}`}>
+      <img
+        src="/assets/aistudio/2oYgiVPUa27XyepRpUf6O2SEcnG_cover_294_4c24c3d3.png"
+        alt="Logo Resmi GoPay"
+        className="h-full w-auto max-h-7 object-contain"
+        loading="lazy"
+      />
     </div>
   );
 };

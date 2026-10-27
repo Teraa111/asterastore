@@ -29,6 +29,8 @@ import {
   AlertCircle,
   HelpCircle,
   RotateCcw,
+  ExternalLink,
+  Smartphone,
 } from 'lucide-react';
 
 interface PaymentModalProps {
@@ -195,6 +197,8 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
   const isQris = currentOrder.paymentGroup === 'QRIS' || currentOrder.paymentMethodId === 'pay-qris';
   const isEwallet = currentOrder.paymentGroup === 'E-Wallet';
   const isAccount = currentOrder.productType === 'advance_account';
+  const isDanaMethod = currentOrder.paymentMethodId === 'pay-dana' || currentOrder.paymentMethodName?.toLowerCase().includes('dana');
+  const isGopayMethod = currentOrder.paymentMethodId === 'pay-gopay' || currentOrder.paymentMethodName?.toLowerCase().includes('gopay');
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -662,40 +666,122 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                 </div>
               )}
 
-              {/* E-Wallet Channel View (GoPay & DANA) */}
+              {/* E-Wallet Channel View (GoPay & DANA Direct Transfer) */}
               {isEwallet && (
-                <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800">
-                    <span className="text-xs text-neutral-400 block mb-1">
-                      Nomor Akun Transfer DANA / E-Wallet ({currentOrder.paymentMethodName}):
-                    </span>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <span className="text-lg font-mono font-bold text-white tracking-wider select-all block">
-                          {paymentConfig.danaNumber}
-                        </span>
-                        <span className="text-[11px] text-emerald-400 font-semibold">
-                          a/n {paymentConfig.danaAccountName} (Admin Resmi)
+                <div className="space-y-3.5">
+                  {/* DANA Card (Show if DANA chosen or generic e-wallet) */}
+                  {(isDanaMethod || (!isDanaMethod && !isGopayMethod)) && (
+                    <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 shadow-md space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                        <div className="flex items-center gap-2">
+                          <DanaLogo className="h-6" />
+                          <span className="text-xs font-bold text-white">Transfer DANA Resmi</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-blue-400 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800">
+                          INSTAN
                         </span>
                       </div>
-                      <button
-                        onClick={() => copyToClipboard(paymentConfig.danaNumber.replace(/[^0-9]/g, ''), 'ewallet')}
-                        className="px-3.5 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/50 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shrink-0"
-                      >
-                        {copiedField === 'ewallet' ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Tersalin</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Salin No DANA</span>
-                          </>
-                        )}
-                      </button>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div>
+                          <span className="text-[11px] text-neutral-400 block mb-0.5">Nomor Akun DANA:</span>
+                          <span className="text-lg font-mono font-black text-white tracking-wider select-all block">
+                            +62 823-1208-8548
+                          </span>
+                          <span className="text-[11px] text-emerald-400 font-semibold block mt-0.5">
+                            a/n {paymentConfig.danaAccountName || 'Aster4, Pakaian (ASTERA STORE)'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1 sm:pt-0">
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard('082312088548', 'dana_num')}
+                            className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+                          >
+                            {copiedField === 'dana_num' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Tersalin</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Salin Nomor</span>
+                              </>
+                            )}
+                          </button>
+
+                          <a
+                            href={`https://link.dana.id/sendmoney?phoneNumber=082312088548&amount=${currentOrder.totalAmount}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/30"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Buka DANA</span>
+                          </a>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* GoPay Card (Show if GoPay chosen or generic e-wallet) */}
+                  {(isGopayMethod || (!isDanaMethod && !isGopayMethod)) && (
+                    <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 shadow-md space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+                        <div className="flex items-center gap-2">
+                          <GopayLogo className="h-6" />
+                          <span className="text-xs font-bold text-white">Transfer GoPay Resmi</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
+                          INSTAN
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div>
+                          <span className="text-[11px] text-neutral-400 block mb-0.5">Nomor Akun GoPay:</span>
+                          <span className="text-lg font-mono font-black text-white tracking-wider select-all block">
+                            +62 838-1194-9679
+                          </span>
+                          <span className="text-[11px] text-emerald-400 font-semibold block mt-0.5">
+                            a/n {paymentConfig.gopayAccountName || 'ASTERA STORE'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1 sm:pt-0">
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard('083811949679', 'gopay_num')}
+                            className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+                          >
+                            {copiedField === 'gopay_num' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Tersalin</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Salin Nomor</span>
+                              </>
+                            )}
+                          </button>
+
+                          <a
+                            href="https://gopay.me/083811949679"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-cyan-600/30"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Buka GoPay</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-800/40 text-xs text-neutral-300 flex items-center justify-between gap-2">
                     <div>
@@ -704,7 +790,7 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                     </div>
                     <a
                       href={`https://wa.me/6282312088548?text=${encodeURIComponent(
-                        `Halo Admin ASTERA STORE, saya ingin konfirmasi pembayaran pesanan ${currentOrder.id} (${formatIDR(currentOrder.totalAmount)}).`
+                        `Halo Admin ASTERA STORE, saya ingin konfirmasi transfer ${currentOrder.paymentMethodName} untuk pesanan ${currentOrder.id} (${formatIDR(currentOrder.totalAmount)}).`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -715,7 +801,7 @@ Customer Support WhatsApp ASTERA STORE: ${paymentConfig.adminPhone}
                   </div>
 
                   <p className="text-[11px] text-neutral-400 text-center">
-                    Buka aplikasi {currentOrder.paymentMethodName}, transfer tepat <strong>{formatIDR(currentOrder.totalAmount)}</strong> ke nomor di atas.
+                    Klik tombol <strong>Buka DANA</strong> / <strong>Buka GoPay</strong> untuk transfer langsung, atau salin nomornya lalu transfer tepat <strong className="text-white font-mono">{formatIDR(currentOrder.totalAmount)}</strong>.
                   </p>
                 </div>
               )}

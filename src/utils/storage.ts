@@ -1176,7 +1176,7 @@ export const DEFAULT_PAYMENT_CONFIG: AdminPaymentConfig = {
   adminWhatsappUrl: 'https://wa.me/6282312088548',
   danaNumber: '0823-1208-8548',
   danaAccountName: 'Aster4, Pakaian (ASTERA STORE)',
-  gopayNumber: '0823-1208-8548',
+  gopayNumber: '0838-1194-9679',
   gopayAccountName: 'ASTERA STORE',
   qrisMerchantName: 'Aster4, Pakaian',
   qrisNmid: 'ID1026623708512',
@@ -1199,6 +1199,10 @@ export function getPaymentConfig(): AdminPaymentConfig {
     if (!merged.qrisNmid || merged.qrisNmid.includes('ID99281726481')) {
       merged.qrisNmid = DEFAULT_PAYMENT_CONFIG.qrisNmid;
       merged.qrisMerchantName = DEFAULT_PAYMENT_CONFIG.qrisMerchantName;
+    }
+    // Perbarui nomor GoPay jika masih bernilai nomor DANA lama
+    if (!merged.gopayNumber || merged.gopayNumber === '0823-1208-8548') {
+      merged.gopayNumber = '0838-1194-9679';
     }
     return merged;
   } catch {
