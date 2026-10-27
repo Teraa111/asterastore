@@ -16,6 +16,9 @@ import {
   saveStoreAssetsToCloud,
   fetchStoreAssetsFromCloud,
   subscribeToStoreAssetsCloud,
+  savePaymentConfigToCloud,
+  fetchPaymentConfigFromCloud,
+  subscribeToPaymentConfigCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -1207,12 +1210,31 @@ export function savePaymentConfig(config: Partial<AdminPaymentConfig>): AdminPay
   try {
     const current = getPaymentConfig();
     const updated = { ...current, ...config };
-    localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(updated));
+    try {
+      localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(updated));
+    } catch {}
     window.dispatchEvent(new Event('storeadv_payment_config_updated'));
+    // Persist immediately to Cloud Firestore database
+    savePaymentConfigToCloud(updated).catch(() => {});
     return updated;
   } catch {
     return DEFAULT_PAYMENT_CONFIG;
   }
+}
+
+export async function syncPaymentConfigFromCloud(): Promise<AdminPaymentConfig> {
+  try {
+    const cloudConfig = await fetchPaymentConfigFromCloud();
+    if (cloudConfig) {
+      const merged: AdminPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, ...cloudConfig };
+      try {
+        localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(merged));
+      } catch {}
+      window.dispatchEvent(new Event('storeadv_payment_config_updated'));
+      return merged;
+    }
+  } catch {}
+  return getPaymentConfig();
 }
 
 // ==========================================
@@ -1292,16 +1314,19 @@ export async function syncStoreAssetsFromCloud(): Promise<StoreAssetsConfig> {
   return getStoreAssets();
 }
 
-// Global Cloud Listeners for Admin PIN & Store Assets across all devices
+// Global Cloud Listeners for Admin PIN, Store Assets & Payment Config across all devices
 if (typeof window !== 'undefined') {
   try {
     syncAdminPinFromCloud().catch(() => {});
     syncStoreAssetsFromCloud().catch(() => {});
+    syncPaymentConfigFromCloud().catch(() => {});
+
     subscribeToAdminPinCloud((newPin) => {
       if (newPin && newPin.length >= 4) {
         localStorage.setItem(ADMIN_PIN_KEY, newPin);
       }
     });
+
     subscribeToStoreAssetsCloud((cloudAssets) => {
       if (cloudAssets) {
         const merged = { ...DEFAULT_STORE_ASSETS, ...cloudAssets };
@@ -1311,8 +1336,18 @@ if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('storeadv_assets_updated'));
       }
     });
+
+    subscribeToPaymentConfigCloud((cloudConfig) => {
+      if (cloudConfig) {
+        const merged: AdminPaymentConfig = { ...DEFAULT_PAYMENT_CONFIG, ...cloudConfig };
+        try {
+          localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(merged));
+        } catch {}
+        window.dispatchEvent(new Event('storeadv_payment_config_updated'));
+      }
+    });
   } catch (err) {
-    console.warn('Realtime PIN/assets listener init note:', err);
+    console.warn('Realtime cloud listener init note:', err);
   }
 }
 

@@ -306,4 +306,61 @@ export function subscribeToStoreAssetsCloud(onAssetsChange: (assets: any) => voi
   }
 }
 
+/**
+ * Save Payment Configuration (QRIS, DANA, Merchant) to Cloud Database
+ */
+export async function savePaymentConfigToCloud(config: any): Promise<boolean> {
+  try {
+    const configDocRef = doc(db, 'config', 'payment_settings');
+    await setDoc(configDocRef, {
+      ...config,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving payment config to Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch Payment Configuration from Cloud Database
+ */
+export async function fetchPaymentConfigFromCloud(): Promise<any | null> {
+  try {
+    const d = await getDoc(doc(db, 'config', 'payment_settings'));
+    if (d.exists()) {
+      return d.data();
+    }
+  } catch (err) {
+    console.error('Error fetching payment config from Firestore:', err);
+  }
+  return null;
+}
+
+/**
+ * Real-time listener for Payment Configuration across all devices
+ */
+export function subscribeToPaymentConfigCloud(onConfigChange: (config: any) => void): () => void {
+  try {
+    return onSnapshot(
+      doc(db, 'config', 'payment_settings'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data) {
+            onConfigChange(data);
+          }
+        }
+      },
+      (err) => {
+        console.warn('Firestore payment config onSnapshot warning:', err);
+      }
+    );
+  } catch {
+    return () => {};
+  }
+}
+
+
 

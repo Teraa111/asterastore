@@ -44,7 +44,11 @@ export default function App() {
     setProducts(loadProducts());
     setRecentOrders(loadOrders());
     fetchOrdersFromServer();
-    fetchProductsFromCloudServer().catch(() => {});
+    fetchProductsFromCloudServer().then((fresh) => {
+      if (fresh && fresh.length > 0) {
+        setProducts(fresh);
+      }
+    }).catch(() => {});
 
     const handleProductsUpdate = () => {
       setProducts(loadProducts());

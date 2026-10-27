@@ -8,6 +8,8 @@ import {
   loadOrders,
   fetchOrdersFromServer,
   getPaymentConfig,
+  syncPaymentConfigFromCloud,
+  AdminPaymentConfig,
 } from '../utils/storage';
 import { QrisLogo, DanaLogo, GopayLogo } from './PaymentLogos';
 import {
@@ -40,12 +42,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   onOrderUpdated,
 }) => {
-  const paymentConfig = getPaymentConfig();
+  const [paymentConfig, setPaymentConfig] = useState<AdminPaymentConfig>(() => getPaymentConfig());
   const [currentOrder, setCurrentOrder] = useState<Order>(order);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(15 * 60);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [showPassword, setShowPassword] = useState(true);
+
+  // Sync latest payment config (QRIS & DANA) from Cloud Database
+  useEffect(() => {
+    const handlePaymentConfigChange = () => {
+      setPaymentConfig(getPaymentConfig());
+    };
+    window.addEventListener('storeadv_payment_config_updated', handlePaymentConfigChange);
+    syncPaymentConfigFromCloud()
+      .then((conf) => {
+        if (conf) setPaymentConfig(conf);
+      })
+      .catch(() => {});
+    return () => window.removeEventListener('storeadv_payment_config_updated', handlePaymentConfigChange);
+  }, []);
 
   useEffect(() => {
     setCurrentOrder(order);

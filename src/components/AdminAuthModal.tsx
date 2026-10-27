@@ -37,20 +37,33 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handlePinSubmit = (e: React.FormEvent) => {
+  const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pin.trim()) {
+    const cleanInput = pin.trim();
+    if (!cleanInput) {
       setPinError('Silakan masukkan PIN keamanan.');
       return;
     }
 
-    if (verifyAdminPin(pin)) {
+    if (verifyAdminPin(cleanInput)) {
       setPinError('');
       setPin('');
       onAuthenticated();
-    } else {
-      setPinError('PIN keamanan salah! Akses ke manajemen stok ditolak.');
+      return;
     }
+
+    // Direct fallback to Cloud Firestore to verify if PIN was changed from another device
+    try {
+      const freshPin = await syncAdminPinFromCloud();
+      if (freshPin.trim() === cleanInput) {
+        setPinError('');
+        setPin('');
+        onAuthenticated();
+        return;
+      }
+    } catch {}
+
+    setPinError('PIN keamanan salah! Akses ke manajemen stok ditolak.');
   };
 
   const handleSupabaseSubmit = async (e: React.FormEvent) => {
