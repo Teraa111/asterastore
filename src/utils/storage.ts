@@ -10,6 +10,12 @@ import {
   saveProductsToCloud,
   fetchProductsFromCloud,
   subscribeToProductsCloud,
+  saveAdminPinToCloud,
+  fetchAdminPinFromCloud,
+  subscribeToAdminPinCloud,
+  saveStoreAssetsToCloud,
+  fetchStoreAssetsFromCloud,
+  subscribeToStoreAssetsCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -107,17 +113,20 @@ export function getDenomReadyStock(denom: {
   if (denom.stockType === 'auto_inject') {
     return -1;
   }
-  // If account pool exists and is populated with accounts, the actual unsold count is the definitive stock
-  if (Array.isArray(denom.accountPool) && denom.accountPool.length > 0) {
+  // Cloud stockCount from Supabase/Firestore is authoritative across all browsers & devices
+  if (typeof denom.stockCount === 'number' && denom.stockCount >= 0) {
+    return denom.stockCount;
+  }
+  // Fallback if stockCount is not yet populated
+  if (Array.isArray(denom.accountPool)) {
     return denom.accountPool.filter((a) => !a.isSold).length;
   }
-  // Authoritative stockCount from Supabase
-  return typeof denom.stockCount === 'number' && denom.stockCount >= 0 ? denom.stockCount : 0;
+  return 0;
 }
 
 /**
- * Ensure stockCount on every denomination matches its real accountPool count,
- * BUT critically preserve cloud stockCount if accountPool is empty (for public visitors/Hola browser)
+ * Ensure stockCount on every denomination matches cloud database count,
+ * without letting stale local accountPool overwrite real-time stock
  */
 export function sanitizeProductsStock(products: ProductCatalog[]): ProductCatalog[] {
   return products.map((prod) => ({
@@ -127,20 +136,13 @@ export function sanitizeProductsStock(products: ProductCatalog[]): ProductCatalo
         const readyPool = Array.isArray(d.accountPool)
           ? d.accountPool.filter((a) => !a.isSold)
           : [];
-        // If there is an active accountPool (e.g. on Admin device), calculate from pool
-        if (readyPool.length > 0) {
-          return {
-            ...d,
-            accountPool: readyPool,
-            stockCount: readyPool.length,
-          };
-        }
-        // CRITICAL BUGFIX: If accountPool is empty (public visitor, Hola browser, mobile HP),
-        // PRESERVE the cloud stockCount! Never reset it to 0!
+        // Cloud stockCount is authoritative. Only fallback to readyPool if stockCount is undefined
+        const authoritativeStock =
+          typeof d.stockCount === 'number' && d.stockCount >= 0 ? d.stockCount : readyPool.length;
         return {
           ...d,
-          accountPool: [],
-          stockCount: typeof d.stockCount === 'number' && d.stockCount >= 0 ? d.stockCount : 0,
+          accountPool: readyPool,
+          stockCount: authoritativeStock,
         };
       }
       return d;
@@ -152,6 +154,8 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
   const map = new Map<string, ProductCatalog>();
   for (const l of local) map.set(l.id, l);
 
+  const isAdmin = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('storeadv_admin_session') === 'true';
+
   for (const c of cloud) {
     const existing = map.get(c.id);
     if (!existing) {
@@ -161,17 +165,18 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
       if (existing.denominations) {
         for (const d of existing.denominations) denomMap.set(d.id, d);
       }
-      const updatedDenoms = c.denominations.map((cd) => {
+      const updatedDenoms = (c.denominations || []).map((cd) => {
         const ed = denomMap.get(cd.id);
         const hasLocalPool = ed && Array.isArray(ed.accountPool) && ed.accountPool.length > 0;
-        // Cloud stockCount from Supabase is authoritative across all devices
-        const realStock = typeof cd.stockCount === 'number'
+        // Cloud stockCount from Supabase / Firestore is the single source of truth across Chrome, Hola, HP
+        const realStock = typeof cd.stockCount === 'number' && cd.stockCount >= 0
           ? cd.stockCount
           : (hasLocalPool ? ed.accountPool.filter((a: any) => !a.isSold).length : 0);
 
         return {
           ...cd,
-          accountPool: hasLocalPool ? ed.accountPool : [],
+          // Only maintain local account credentials pool on the authorized Admin device
+          accountPool: isAdmin && hasLocalPool ? ed.accountPool : [],
           stockCount: realStock,
         };
       });
@@ -1113,11 +1118,34 @@ export function getAdminPin(): string {
 export function setAdminPin(newPin: string): boolean {
   try {
     if (!newPin || newPin.trim().length < 4) return false;
-    localStorage.setItem(ADMIN_PIN_KEY, newPin.trim());
+    const cleanPin = newPin.trim();
+    localStorage.setItem(ADMIN_PIN_KEY, cleanPin);
+
+    // Sync to Firestore Cloud Database so all browsers & devices receive the new PIN
+    saveAdminPinToCloud(cleanPin).catch(() => {});
+
+    // Sync to server backend
+    fetch('/api/admin/pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: cleanPin }),
+    }).catch(() => {});
+
     return true;
   } catch {
     return false;
   }
+}
+
+export async function syncAdminPinFromCloud(): Promise<string> {
+  try {
+    const cloudPin = await fetchAdminPinFromCloud();
+    if (cloudPin && cloudPin.length >= 4) {
+      localStorage.setItem(ADMIN_PIN_KEY, cloudPin);
+      return cloudPin;
+    }
+  } catch {}
+  return getAdminPin();
 }
 
 export function verifyAdminPin(inputPin: string): boolean {
@@ -1220,7 +1248,11 @@ export function saveStoreAssets(assets: Partial<StoreAssetsConfig>): StoreAssets
   try {
     const current = getStoreAssets();
     const updated = { ...current, ...assets };
-    localStorage.setItem(STORE_ASSETS_KEY, JSON.stringify(updated));
+    try {
+      localStorage.setItem(STORE_ASSETS_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('localStorage quota note for store assets (syncing to cloud):', e);
+    }
     window.dispatchEvent(new Event('storeadv_assets_updated'));
 
     // Also keep product catalog coverImage in sync
@@ -1236,9 +1268,51 @@ export function saveStoreAssets(assets: Partial<StoreAssetsConfig>): StoreAssets
     });
     saveProducts(updatedProducts);
 
+    // Sync Store Assets to Firestore Cloud Database
+    saveStoreAssetsToCloud(updated).catch(() => {});
+
     return updated;
   } catch {
     return DEFAULT_STORE_ASSETS;
+  }
+}
+
+export async function syncStoreAssetsFromCloud(): Promise<StoreAssetsConfig> {
+  try {
+    const cloudAssets = await fetchStoreAssetsFromCloud();
+    if (cloudAssets) {
+      const merged = { ...DEFAULT_STORE_ASSETS, ...cloudAssets };
+      try {
+        localStorage.setItem(STORE_ASSETS_KEY, JSON.stringify(merged));
+      } catch {}
+      window.dispatchEvent(new Event('storeadv_assets_updated'));
+      return merged;
+    }
+  } catch {}
+  return getStoreAssets();
+}
+
+// Global Cloud Listeners for Admin PIN & Store Assets across all devices
+if (typeof window !== 'undefined') {
+  try {
+    syncAdminPinFromCloud().catch(() => {});
+    syncStoreAssetsFromCloud().catch(() => {});
+    subscribeToAdminPinCloud((newPin) => {
+      if (newPin && newPin.length >= 4) {
+        localStorage.setItem(ADMIN_PIN_KEY, newPin);
+      }
+    });
+    subscribeToStoreAssetsCloud((cloudAssets) => {
+      if (cloudAssets) {
+        const merged = { ...DEFAULT_STORE_ASSETS, ...cloudAssets };
+        try {
+          localStorage.setItem(STORE_ASSETS_KEY, JSON.stringify(merged));
+        } catch {}
+        window.dispatchEvent(new Event('storeadv_assets_updated'));
+      }
+    });
+  } catch (err) {
+    console.warn('Realtime PIN/assets listener init note:', err);
   }
 }
 

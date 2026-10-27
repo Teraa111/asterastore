@@ -191,3 +191,119 @@ export function subscribeToProductsCloud(onProductsChange: (products: ProductCat
   }
 }
 
+/**
+ * Save Admin Security PIN to Cloud Database (Firestore)
+ */
+export async function saveAdminPinToCloud(newPin: string): Promise<boolean> {
+  try {
+    const configDocRef = doc(db, 'config', 'admin_security');
+    await setDoc(configDocRef, {
+      adminPin: newPin.trim(),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving admin PIN to Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch Admin Security PIN from Cloud Database
+ */
+export async function fetchAdminPinFromCloud(): Promise<string | null> {
+  try {
+    const d = await getDoc(doc(db, 'config', 'admin_security'));
+    if (d.exists()) {
+      const data = d.data();
+      if (data && typeof data.adminPin === 'string' && data.adminPin.trim().length >= 4) {
+        return data.adminPin.trim();
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching admin PIN from Firestore:', err);
+  }
+  return null;
+}
+
+/**
+ * Real-time listener for Admin PIN updates across all devices
+ */
+export function subscribeToAdminPinCloud(onPinChange: (newPin: string) => void): () => void {
+  try {
+    return onSnapshot(
+      doc(db, 'config', 'admin_security'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data && typeof data.adminPin === 'string' && data.adminPin.trim().length >= 4) {
+            onPinChange(data.adminPin.trim());
+          }
+        }
+      },
+      (err) => {
+        console.warn('Firestore admin PIN onSnapshot warning:', err);
+      }
+    );
+  } catch {
+    return () => {};
+  }
+}
+
+/**
+ * Save Store Assets (banners, logos, covers) to Cloud Database
+ */
+export async function saveStoreAssetsToCloud(assets: any): Promise<boolean> {
+  try {
+    const configDocRef = doc(db, 'config', 'store_assets');
+    await setDoc(configDocRef, {
+      ...assets,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving store assets to Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch Store Assets from Cloud Database
+ */
+export async function fetchStoreAssetsFromCloud(): Promise<any | null> {
+  try {
+    const d = await getDoc(doc(db, 'config', 'store_assets'));
+    if (d.exists()) {
+      return d.data();
+    }
+  } catch (err) {
+    console.error('Error fetching store assets from Firestore:', err);
+  }
+  return null;
+}
+
+/**
+ * Real-time listener for Store Assets updates across all devices
+ */
+export function subscribeToStoreAssetsCloud(onAssetsChange: (assets: any) => void): () => void {
+  try {
+    return onSnapshot(
+      doc(db, 'config', 'store_assets'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data) {
+            onAssetsChange(data);
+          }
+        }
+      },
+      (err) => {
+        console.warn('Firestore store assets onSnapshot warning:', err);
+      }
+    );
+  } catch {
+    return () => {};
+  }
+}
+
+

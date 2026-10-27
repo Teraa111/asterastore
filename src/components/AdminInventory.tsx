@@ -760,6 +760,38 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     document.body.removeChild(link);
   };
 
+  const compressImage = (file: File, maxDim = 1280, quality = 0.82): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            const scale = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(e.target?.result as string);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSaveNewPin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPinInput || newPinInput.trim().length < 4) {
@@ -775,6 +807,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     if (success) {
       setPinChangeSuccess(true);
       setPinChangeError('');
+      showToast('✅ PIN Keamanan Admin berhasil diubah dan tersimpan di database cloud!', 'success');
       setTimeout(() => {
         setShowChangePinModal(false);
         setPinChangeSuccess(false);
@@ -786,20 +819,21 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     }
   };
 
-  const handleQrisFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQrisFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       showToast('Harap pilih file gambar (JPG / PNG / WEBP).', 'warning');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setQrisImageInput(base64);
-      showToast('Gambar QRIS DANA Bisnis berhasil dimuat! Klik "Simpan Pengaturan".', 'success');
-    };
-    reader.readAsDataURL(file);
+    try {
+      showToast('Mengoptimalkan barcode QRIS...', 'success');
+      const optimizedBase64 = await compressImage(file, 1000, 0.9);
+      setQrisImageInput(optimizedBase64);
+      showToast('✅ Gambar QRIS berhasil dimuat & dioptimalkan! Klik "Simpan Pengaturan".', 'success');
+    } catch {
+      showToast('Gagal memproses gambar QRIS.', 'warning');
+    }
   };
 
   const handleSavePaymentConfig = (e: React.FormEvent) => {
@@ -816,7 +850,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     showToast('Pengaturan Pembayaran & Barcode QRIS DANA Admin berhasil disimpan!', 'success');
   };
 
-  const handleAssetFileUpload = (
+  const handleAssetFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (val: string) => void,
     fieldLabel: string
@@ -827,13 +861,14 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       showToast('Harap pilih file gambar yang valid (JPG / PNG / WEBP).', 'warning');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setter(base64);
-      showToast(`Foto ${fieldLabel} berhasil dimuat! Klik "Simpan Semua Foto & Banner".`, 'success');
-    };
-    reader.readAsDataURL(file);
+    try {
+      showToast(`Mengoptimalkan foto ${fieldLabel}...`, 'success');
+      const optimizedBase64 = await compressImage(file, 1280, 0.82);
+      setter(optimizedBase64);
+      showToast(`✅ Foto ${fieldLabel} berhasil dimuat & dioptimalkan! Klik "Simpan Semua Foto & Banner".`, 'success');
+    } catch {
+      showToast('Gagal memproses gambar.', 'warning');
+    }
   };
 
   const handleSaveStoreAssets = (e: React.FormEvent) => {
@@ -845,7 +880,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       storeLogoImg: storeLogoInput.trim(),
     });
     setStoreAssets(updated);
-    showToast('Semua Foto & Banner Toko ASTERA STORE berhasil disimpan & langsung tampil di website!', 'success');
+    showToast('✅ Semua Foto & Banner Toko ASTERA STORE berhasil disimpan & disinkronkan ke cloud!', 'success');
   };
 
   return (

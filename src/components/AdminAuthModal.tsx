@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, ShieldAlert, X, ArrowRight, Database, KeyRound, Mail } from 'lucide-react';
-import { verifyAdminPin, DEFAULT_ADMIN_PIN } from '../utils/storage';
+import { verifyAdminPin, DEFAULT_ADMIN_PIN, syncAdminPinFromCloud } from '../utils/storage';
 import { supabase, isSupabaseConfigured } from '../utils/supabase';
 
 interface AdminAuthModalProps {
@@ -20,6 +20,13 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState('');
+
+  // Proactively fetch latest Admin PIN from Cloud when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      syncAdminPinFromCloud().catch(() => {});
+    }
+  }, [isOpen]);
 
   // Supabase Auth state
   const [sbEmail, setSbEmail] = useState('');
