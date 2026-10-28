@@ -362,5 +362,66 @@ export function subscribeToPaymentConfigCloud(onConfigChange: (config: any) => v
   }
 }
 
+/**
+ * Save Account Vault (Moonton email, password, server, level) directly to Firestore
+ */
+export async function saveAccountVaultToCloud(vault: Record<string, any[]>): Promise<boolean> {
+  try {
+    const vaultDocRef = doc(db, 'config', 'account_vault');
+    const cleaned = JSON.parse(JSON.stringify(vault));
+    await setDoc(vaultDocRef, {
+      vault: cleaned,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving account vault to Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch Account Vault from Firestore
+ */
+export async function fetchAccountVaultFromCloud(): Promise<Record<string, any[]> | null> {
+  try {
+    const d = await getDoc(doc(db, 'config', 'account_vault'));
+    if (d.exists()) {
+      const data = d.data();
+      if (data && data.vault) {
+        return data.vault as Record<string, any[]>;
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching account vault from Firestore:', err);
+  }
+  return null;
+}
+
+/**
+ * Real-time listener for Account Vault updates across all Admin devices
+ */
+export function subscribeToAccountVaultCloud(onVaultChange: (vault: Record<string, any[]>) => void): () => void {
+  try {
+    return onSnapshot(
+      doc(db, 'config', 'account_vault'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data && data.vault) {
+            onVaultChange(data.vault);
+          }
+        }
+      },
+      (err) => {
+        console.warn('Firestore account vault onSnapshot warning:', err);
+      }
+    );
+  } catch {
+    return () => {};
+  }
+}
+
+
 
 

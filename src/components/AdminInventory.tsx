@@ -27,6 +27,7 @@ import {
   syncAllProductsToCloud,
   getDenomReadyStock,
   fetchProductsFromCloudServer,
+  syncAccountVaultFromCloud,
 } from '../utils/storage';
 import {
   isSupabaseConfigured,
@@ -214,6 +215,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   useEffect(() => {
     refreshData();
     runSupabaseCheck();
+    syncAccountVaultFromCloud().catch(() => {});
     const handleSync = () => {
       refreshData();
       runSupabaseCheck();
@@ -222,10 +224,11 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     window.addEventListener('storeadv_orders_updated', handleSync);
     window.addEventListener('storeadv_promos_updated', handleSync);
 
-    // Real-time sync: poll server orders & products every 3 seconds
+    // Real-time sync: poll server orders, products & cloud vault every 3 seconds
     const pollTimer = setInterval(() => {
       fetchOrdersFromServer();
       fetchProductsFromCloudServer().catch(() => {});
+      syncAccountVaultFromCloud().catch(() => {});
     }, 3000);
 
     return () => {
@@ -366,7 +369,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     setNewAccEmail('');
     setNewAccPassword('');
     setShowAddAccountModal(false);
-    showToast('Akun baru berhasil ditambahkan ke brankas & disinkronkan ke Supabase!', 'success');
+    showToast('Akun baru berhasil disimpan ke brankas database cloud Firestore!', 'success');
   };
 
   // Open Edit Account Modal (Ubah email, password, server, level jika salah ketik)

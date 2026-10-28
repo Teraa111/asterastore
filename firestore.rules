@@ -10,5 +10,8 @@ service cloud.firestore {
     match /config/{configId} {
       allow read, write: if true;
     }
+    match /accounts_vault/{accId} {
+      allow read, write: if true;
+    }
   }
 }

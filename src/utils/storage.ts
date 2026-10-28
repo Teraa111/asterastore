@@ -19,6 +19,9 @@ import {
   savePaymentConfigToCloud,
   fetchPaymentConfigFromCloud,
   subscribeToPaymentConfigCloud,
+  saveAccountVaultToCloud,
+  fetchAccountVaultFromCloud,
+  subscribeToAccountVaultCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -170,16 +173,24 @@ function mergeCloudProducts(local: ProductCatalog[], cloud: ProductCatalog[]): P
       }
       const updatedDenoms = (c.denominations || []).map((cd) => {
         const ed = denomMap.get(cd.id);
-        const hasLocalPool = ed && Array.isArray(ed.accountPool) && ed.accountPool.length > 0;
-        // Cloud stockCount from Supabase / Firestore is the single source of truth across Chrome, Hola, HP
+        const edPool = (ed && Array.isArray(ed.accountPool)) ? ed.accountPool : [];
+        const cdPool = (cd && Array.isArray(cd.accountPool)) ? cd.accountPool : [];
+
+        // For Admin: merge cloud pool and local pool so accounts stored in database are preserved
+        const accMap = new Map<string, AccountCredential>();
+        for (const a of cdPool) accMap.set(a.id, a);
+        for (const a of edPool) accMap.set(a.id, a);
+        const mergedPool = Array.from(accMap.values());
+
+        const readyCount = mergedPool.filter((a) => !a.isSold).length;
         const realStock = typeof cd.stockCount === 'number' && cd.stockCount >= 0
-          ? cd.stockCount
-          : (hasLocalPool ? ed.accountPool.filter((a: any) => !a.isSold).length : 0);
+          ? Math.max(cd.stockCount, readyCount)
+          : readyCount;
 
         return {
           ...cd,
-          // Only maintain local account credentials pool on the authorized Admin device
-          accountPool: isAdmin && hasLocalPool ? ed.accountPool : [],
+          // Maintain complete account credentials pool from database on authorized Admin session
+          accountPool: isAdmin ? mergedPool : [],
           stockCount: realStock,
         };
       });
@@ -331,6 +342,67 @@ export async function syncAllProductsToCloud(products: ProductCatalog[]): Promis
   };
 }
 
+/**
+ * Synchronize the entire account credentials vault directly from Firestore Cloud Database
+ */
+export async function syncAccountVaultFromCloud(): Promise<void> {
+  try {
+    const cloudVault = await fetchAccountVaultFromCloud();
+    if (cloudVault && typeof cloudVault === 'object') {
+      const local = loadProductsLocal();
+      let hasChanges = false;
+      const updated = local.map((p) => {
+        if (p.type !== 'advance_account') return p;
+        return {
+          ...p,
+          denominations: p.denominations.map((d) => {
+            const vaultAccounts = cloudVault[d.id];
+            if (Array.isArray(vaultAccounts)) {
+              hasChanges = true;
+              return {
+                ...d,
+                accountPool: vaultAccounts,
+                stockCount: vaultAccounts.filter((a) => !a.isSold).length,
+              };
+            }
+            return d;
+          }),
+        };
+      });
+
+      if (hasChanges) {
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updated));
+        window.dispatchEvent(new Event('storeadv_products_updated'));
+      }
+    }
+  } catch (err) {
+    console.warn('syncAccountVaultFromCloud error:', err);
+  }
+}
+
+/**
+ * Save account vault to Firestore Cloud Database
+ */
+export async function syncAccountVaultToCloud(products: ProductCatalog[]): Promise<void> {
+  try {
+    const vaultMap: Record<string, AccountCredential[]> = {};
+    for (const p of products) {
+      if (p.type === 'advance_account') {
+        for (const d of p.denominations) {
+          if (Array.isArray(d.accountPool)) {
+            vaultMap[d.id] = d.accountPool;
+          }
+        }
+      }
+    }
+    if (Object.keys(vaultMap).length > 0) {
+      await saveAccountVaultToCloud(vaultMap);
+    }
+  } catch (err) {
+    console.warn('syncAccountVaultToCloud error:', err);
+  }
+}
+
 export function saveProducts(products: ProductCatalog[]): void {
   const sanitized = sanitizeProductsStock(products);
   try {
@@ -340,8 +412,9 @@ export function saveProducts(products: ProductCatalog[]): void {
   }
   window.dispatchEvent(new Event('storeadv_products_updated'));
 
-  // Sync to Cloud Databases (Supabase + Firestore)
+  // Sync to Cloud Databases (Firestore Catalog + Firestore Account Vault + Supabase)
   syncAllProductsToCloud(sanitized).catch(() => {});
+  syncAccountVaultToCloud(sanitized).catch(() => {});
 }
 
 export function applyCloudProductsUpdate(cloudProducts: ProductCatalog[]) {
@@ -1348,6 +1421,39 @@ if (typeof window !== 'undefined') {
           localStorage.setItem(PAYMENT_CONFIG_KEY, JSON.stringify(merged));
         } catch {}
         window.dispatchEvent(new Event('storeadv_payment_config_updated'));
+      }
+    });
+
+    // Real-time synchronization for Account Credentials Vault in Firestore Cloud
+    syncAccountVaultFromCloud().catch(() => {});
+    subscribeToAccountVaultCloud((cloudVault) => {
+      if (cloudVault && typeof cloudVault === 'object') {
+        const local = loadProductsLocal();
+        let changed = false;
+        const updated = local.map((p) => {
+          if (p.type !== 'advance_account') return p;
+          return {
+            ...p,
+            denominations: p.denominations.map((d) => {
+              const vaultAccs = cloudVault[d.id];
+              if (Array.isArray(vaultAccs)) {
+                changed = true;
+                return {
+                  ...d,
+                  accountPool: vaultAccs,
+                  stockCount: vaultAccs.filter((a) => !a.isSold).length,
+                };
+              }
+              return d;
+            }),
+          };
+        });
+        if (changed) {
+          try {
+            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updated));
+          } catch {}
+          window.dispatchEvent(new Event('storeadv_products_updated'));
+        }
       }
     });
   } catch (err) {
