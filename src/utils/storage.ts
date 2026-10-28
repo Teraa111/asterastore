@@ -22,6 +22,8 @@ import {
   saveAccountVaultToCloud,
   fetchAccountVaultFromCloud,
   subscribeToAccountVaultCloud,
+  deleteOrderFromCloud,
+  deleteAllOrdersFromCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -88,6 +90,29 @@ export function saveMyOrderId(orderId: string): void {
       ids.unshift(cleanId);
       localStorage.setItem(STORAGE_KEYS.MY_ORDER_IDS, JSON.stringify(ids.slice(0, 50)));
     }
+  } catch {}
+}
+
+/**
+ * Remove an order ID from the current device's order list
+ */
+export function removeMyOrderId(orderId: string): void {
+  if (!orderId) return;
+  try {
+    const cleanId = orderId.trim();
+    const ids = getMyOrderIds().filter((id) => id !== cleanId);
+    localStorage.setItem(STORAGE_KEYS.MY_ORDER_IDS, JSON.stringify(ids));
+    window.dispatchEvent(new Event('storeadv_orders_updated'));
+  } catch {}
+}
+
+/**
+ * Clear all my order IDs from current device
+ */
+export function clearMyOrders(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.MY_ORDER_IDS);
+    window.dispatchEvent(new Event('storeadv_orders_updated'));
   } catch {}
 }
 
@@ -1136,6 +1161,54 @@ export function adminCancelOrder(orderId: string, reason = 'Dibatalkan oleh Admi
   }).catch(() => {});
 
   return updated;
+}
+
+/**
+ * 5. HAPUS PESANAN PERMANEN OLEH ADMIN (DELETE ORDER)
+ * Menghapus pesanan secara permanen dari database cloud Firestore dan cache lokal.
+ */
+export async function adminDeleteOrder(orderId: string): Promise<boolean> {
+  const cleanId = orderId.trim();
+  // 1. Hapus dari cache localStorage orders
+  const orders = loadOrdersLocal();
+  const filtered = orders.filter((o) => o.id !== cleanId);
+  try {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
+  } catch {}
+
+  // 2. Hapus dari daftar riwayat perangkat
+  removeMyOrderId(cleanId);
+
+  // 3. Hapus permanen dari cloud database Firestore
+  try {
+    await deleteOrderFromCloud(cleanId);
+  } catch (err) {
+    console.warn('Error deleting order from Firestore:', err);
+  }
+
+  // 4. Dispatch event pembaruan
+  window.dispatchEvent(new Event('storeadv_orders_updated'));
+  return true;
+}
+
+/**
+ * 6. HAPUS SEMUA PESANAN TEST (RESET ALL ORDERS)
+ * Menghapus seluruh riwayat transaksi dari database cloud Firestore dan cache lokal.
+ */
+export async function adminDeleteAllOrders(): Promise<boolean> {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.ORDERS);
+    localStorage.removeItem(STORAGE_KEYS.MY_ORDER_IDS);
+  } catch {}
+
+  try {
+    await deleteAllOrdersFromCloud();
+  } catch (err) {
+    console.warn('Error clearing all orders from Firestore:', err);
+  }
+
+  window.dispatchEvent(new Event('storeadv_orders_updated'));
+  return true;
 }
 
 // Legacy alias compatibility jika ada komponen yang memanggil fungsi lama

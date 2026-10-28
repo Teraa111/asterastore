@@ -13,6 +13,8 @@ import {
   adminVerifyAndFulfillOrder,
   adminMarkOrderExpired,
   adminCancelOrder,
+  adminDeleteOrder,
+  adminDeleteAllOrders,
   getOrderStatusDetails,
   triggerAutomaticFulfillment,
   getAdminPin,
@@ -295,6 +297,30 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
         setSelectedOrderDetails(res);
       }
     }
+  };
+
+  // Admin deletes single order permanently
+  const handleAdminDeleteOrder = async (orderId: string) => {
+    if (!window.confirm(`Yakin ingin menghapus pesanan ${orderId} secara permanen dari database cloud & riwayat?`)) {
+      return;
+    }
+    await adminDeleteOrder(orderId);
+    if (selectedOrderDetails?.id === orderId) {
+      setSelectedOrderDetails(null);
+    }
+    refreshData();
+    showToast(`Pesanan ${orderId} berhasil dihapus permanen dari database!`, 'success');
+  };
+
+  // Admin deletes all orders permanently (Reset test orders)
+  const handleAdminDeleteAllOrders = async () => {
+    if (!window.confirm('PERINGATAN: Yakin ingin MENGHAPUS SEMUA PESANAN dari database cloud & sistem? Tindakan ini akan mengosongkan seluruh riwayat transaksi.')) {
+      return;
+    }
+    await adminDeleteAllOrders();
+    setSelectedOrderDetails(null);
+    refreshData();
+    showToast('Seluruh riwayat pesanan berhasil dibersihkan dari database cloud!', 'success');
   };
 
   // Filtered orders list
@@ -1757,9 +1783,22 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
               </select>
             </div>
 
-            <span className="text-xs text-neutral-400">
-              Total {filteredOrders.length} transaksi ditampilkan
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs text-neutral-400">
+                Total {filteredOrders.length} transaksi ditampilkan
+              </span>
+              {orders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAdminDeleteAllOrders}
+                  className="px-2.5 py-1 bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+                  title="Hapus seluruh riwayat pesanan test dari database cloud & peranti"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <span>Hapus Semua Pesanan ({orders.length})</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1838,6 +1877,14 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                             className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] rounded transition-colors"
                           >
                             Detail
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAdminDeleteOrder(ord.id)}
+                            className="p-1.5 bg-red-950/70 hover:bg-red-900 text-red-400 hover:text-white border border-red-900/80 rounded-lg transition-colors"
+                            title="Hapus pesanan ini secara permanen dari database"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -3269,6 +3316,15 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                   <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => handleAdminDeleteOrder(selectedOrderDetails.id)}
+                className="w-full py-2.5 bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+                <span>Hapus Pesanan Ini Secara Permanen</span>
+              </button>
 
               <button
                 onClick={() => setSelectedOrderDetails(null)}

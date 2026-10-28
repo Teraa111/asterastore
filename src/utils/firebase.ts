@@ -7,6 +7,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
@@ -70,6 +71,36 @@ export async function updateOrderInCloud(orderId: string, updates: Partial<Order
   } catch (err) {
     console.error('Error updating order in Firestore:', err);
     throw err;
+  }
+}
+
+/**
+ * Permanently delete single order from Firestore cloud database
+ */
+export async function deleteOrderFromCloud(orderId: string): Promise<boolean> {
+  try {
+    const orderDocRef = doc(db, ORDERS_COLLECTION, orderId);
+    await deleteDoc(orderDocRef);
+    return true;
+  } catch (err) {
+    console.error('Error deleting order from Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Permanently clear all test orders from Firestore cloud database
+ */
+export async function deleteAllOrdersFromCloud(): Promise<boolean> {
+  try {
+    const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
+    for (const d of snapshot.docs) {
+      await deleteDoc(d.ref);
+    }
+    return true;
+  } catch (err) {
+    console.error('Error clearing orders from Firestore:', err);
+    return false;
   }
 }
 

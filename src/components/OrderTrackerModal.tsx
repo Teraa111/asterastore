@@ -7,6 +7,10 @@ import {
   getOrderStatusDetails,
   fetchOrdersFromServer,
   saveMyOrderId,
+  removeMyOrderId,
+  clearMyOrders,
+  adminDeleteOrder,
+  adminDeleteAllOrders,
   isMyOrderId,
   isAdminSession,
 } from '../utils/storage';
@@ -28,6 +32,7 @@ import {
   Lock,
   KeyRound,
   ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 
 interface OrderTrackerModalProps {
@@ -80,6 +85,29 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
     navigator.clipboard.writeText(txt);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleRemoveInvoiceFromDevice = async (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Hapus invoice ${orderId} dari daftar pesanan di perangkat ini?`)) {
+      return;
+    }
+    removeMyOrderId(orderId);
+    if (isAdmin) {
+      await adminDeleteOrder(orderId);
+    }
+    setOrdersList((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const handleClearAllDeviceOrders = async () => {
+    if (!window.confirm('Hapus seluruh riwayat pesanan dari perangkat ini?')) {
+      return;
+    }
+    clearMyOrders();
+    if (isAdmin) {
+      await adminDeleteAllOrders();
+    }
+    setOrdersList([]);
   };
 
   // Perform targeted online lookup for an invoice made on another device
@@ -423,9 +451,19 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
                       </button>
                     </div>
 
-                    <span className={`text-[11px] font-bold border px-2 py-0.5 rounded ${details.badgeClass}`}>
-                      {details.label}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[11px] font-bold border px-2 py-0.5 rounded ${details.badgeClass}`}>
+                        {details.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveInvoiceFromDevice(ord.id, e)}
+                        className="p-1 text-neutral-500 hover:text-red-400 hover:bg-neutral-900 rounded transition-colors"
+                        title="Hapus invoice ini dari riwayat perangkat"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-neutral-800/80 my-2">
@@ -489,11 +527,23 @@ export const OrderTrackerModal: React.FC<OrderTrackerModalProps> = ({
 
         {/* Footer info */}
         <div className="mt-4 pt-3 border-t border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400">
-          <span>
-            {isAdmin
-              ? `Total ${ordersList.length} pesanan toko tercatat`
-              : `Tersimpan ${ordersList.length} pesanan Anda di perangkat ini`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span>
+              {isAdmin
+                ? `Total ${ordersList.length} pesanan toko tercatat`
+                : `Tersimpan ${ordersList.length} pesanan Anda di perangkat ini`}
+            </span>
+            {ordersList.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAllDeviceOrders}
+                className="text-red-400 hover:text-red-300 hover:underline text-[10px] ml-1 font-semibold"
+                title="Bersihkan riwayat invoice dari peranti ini"
+              >
+                (Bersihkan Riwayat)
+              </button>
+            )}
+          </div>
           <span className="text-neutral-500">ASTERA STORE Official</span>
         </div>
       </div>
