@@ -94,9 +94,8 @@ export async function deleteOrderFromCloud(orderId: string): Promise<boolean> {
 export async function deleteAllOrdersFromCloud(): Promise<boolean> {
   try {
     const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
-    for (const d of snapshot.docs) {
-      await deleteDoc(d.ref);
-    }
+    if (snapshot.empty) return true;
+    await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
     return true;
   } catch (err) {
     console.error('Error clearing orders from Firestore:', err);

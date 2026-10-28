@@ -206,6 +206,12 @@ CREATE POLICY "Allow update orders"
   TO anon, authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Allow delete orders" ON public.orders;
+CREATE POLICY "Allow delete orders"
+  ON public.orders FOR DELETE
+  TO anon, authenticated
+  USING (true);
+
 -- 5. ATOMIC FULFILLMENT FUNCTION (Mencegah 2 pembeli dapat 1 akun yang sama)
 CREATE OR REPLACE FUNCTION public.admin_fulfill_order_atomic(
   p_order_id TEXT,
@@ -772,5 +778,41 @@ export async function getOrderFromSupabase(id: string): Promise<Order | null> {
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Permanently delete single order from Supabase
+ */
+export async function deleteOrderFromSupabase(id: string): Promise<boolean> {
+  if (!supabase || !id) return false;
+  try {
+    const { error } = await supabase.from('orders').delete().eq('id', id.trim());
+    if (error) {
+      console.warn('Supabase deleteOrder warning:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error in deleteOrderFromSupabase:', err);
+    return false;
+  }
+}
+
+/**
+ * Permanently delete ALL orders from Supabase
+ */
+export async function deleteAllOrdersFromSupabase(): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('orders').delete().neq('id', '');
+    if (error) {
+      console.warn('Supabase deleteAllOrders warning:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error in deleteAllOrdersFromSupabase:', err);
+    return false;
   }
 }

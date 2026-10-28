@@ -304,11 +304,12 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     if (!window.confirm(`Yakin ingin menghapus pesanan ${orderId} secara permanen dari database cloud & riwayat?`)) {
       return;
     }
-    await adminDeleteOrder(orderId);
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
     if (selectedOrderDetails?.id === orderId) {
       setSelectedOrderDetails(null);
     }
-    refreshData();
+    await adminDeleteOrder(orderId);
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
     showToast(`Pesanan ${orderId} berhasil dihapus permanen dari database!`, 'success');
   };
 
@@ -317,9 +318,10 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     if (!window.confirm('PERINGATAN: Yakin ingin MENGHAPUS SEMUA PESANAN dari database cloud & sistem? Tindakan ini akan mengosongkan seluruh riwayat transaksi.')) {
       return;
     }
-    await adminDeleteAllOrders();
+    setOrders([]);
     setSelectedOrderDetails(null);
-    refreshData();
+    await adminDeleteAllOrders();
+    setOrders([]);
     showToast('Seluruh riwayat pesanan berhasil dibersihkan dari database cloud!', 'success');
   };
 

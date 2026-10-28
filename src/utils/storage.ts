@@ -35,6 +35,8 @@ import {
   saveOrderToSupabase,
   fetchOrdersFromSupabase,
   getOrderFromSupabase,
+  deleteOrderFromSupabase,
+  deleteAllOrdersFromSupabase,
 } from './supabase';
 
 const STORAGE_KEYS = {
@@ -1179,33 +1181,60 @@ export async function adminDeleteOrder(orderId: string): Promise<boolean> {
   // 2. Hapus dari daftar riwayat perangkat
   removeMyOrderId(cleanId);
 
-  // 3. Hapus permanen dari cloud database Firestore
+  // 3. Hapus permanen dari Supabase Cloud Database (PostgreSQL)
+  try {
+    await deleteOrderFromSupabase(cleanId);
+  } catch (err) {
+    console.warn('Error deleting order from Supabase:', err);
+  }
+
+  // 4. Hapus permanen dari cloud database Firestore
   try {
     await deleteOrderFromCloud(cleanId);
   } catch (err) {
     console.warn('Error deleting order from Firestore:', err);
   }
 
-  // 4. Dispatch event pembaruan
+  // 5. Hapus dari backend Express jika aktif
+  fetch(`/api/orders/${cleanId}`, { method: 'DELETE' }).catch(() => {});
+
+  // 6. Dispatch event pembaruan
   window.dispatchEvent(new Event('storeadv_orders_updated'));
   return true;
 }
 
 /**
  * 6. HAPUS SEMUA PESANAN TEST (RESET ALL ORDERS)
- * Menghapus seluruh riwayat transaksi dari database cloud Firestore dan cache lokal.
+ * Menghapus seluruh riwayat transaksi dari database cloud Supabase, Firestore, dan cache lokal.
  */
 export async function adminDeleteAllOrders(): Promise<boolean> {
+  // 1. Simpan array kosong ke localStorage
   try {
-    localStorage.removeItem(STORAGE_KEYS.ORDERS);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
     localStorage.removeItem(STORAGE_KEYS.MY_ORDER_IDS);
   } catch {}
 
+  // 2. Hapus seluruh pesanan dari Supabase Cloud Database
+  try {
+    await deleteAllOrdersFromSupabase();
+  } catch (err) {
+    console.warn('Error clearing all orders from Supabase:', err);
+  }
+
+  // 3. Hapus seluruh pesanan dari Firestore Cloud Database
   try {
     await deleteAllOrdersFromCloud();
   } catch (err) {
     console.warn('Error clearing all orders from Firestore:', err);
   }
+
+  // 4. Hapus dari backend Express jika aktif
+  fetch('/api/orders', { method: 'DELETE' }).catch(() => {});
+
+  // 5. Pastikan kembali localStorage tetap kosong
+  try {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
+  } catch {}
 
   window.dispatchEvent(new Event('storeadv_orders_updated'));
   return true;
