@@ -817,52 +817,54 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
               </div>
             </div>
 
-            {/* E-Wallet: GoPay & DANA */}
-            <div>
-              <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
-                E-Wallet Resmi (GoPay & DANA)
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {PAYMENT_CHANNELS.filter((p) => p.group === 'E-Wallet').map((channel) => {
-                  const isSelected = selectedPayment.id === channel.id;
-                  const fee = calculatePaymentFee(subtotal - discountAmount, channel.feePercent, channel.feeFixed);
-                  const grandTotal = Math.max(0, subtotal - discountAmount + fee);
+            {/* E-Wallet: Only rendered if enabled in channels */}
+            {PAYMENT_CHANNELS.some((p) => p.group === 'E-Wallet') && (
+              <div>
+                <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                  E-Wallet Resmi
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {PAYMENT_CHANNELS.filter((p) => p.group === 'E-Wallet').map((channel) => {
+                    const isSelected = selectedPayment.id === channel.id;
+                    const fee = calculatePaymentFee(subtotal - discountAmount, channel.feePercent, channel.feeFixed);
+                    const grandTotal = Math.max(0, subtotal - discountAmount + fee);
 
-                  return (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      onClick={() => setSelectedPayment(channel)}
-                      className={`p-3.5 rounded-xl border text-left flex items-center justify-between transition-all ${
-                        isSelected
-                          ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500 shadow-md shadow-blue-600/20'
-                          : 'bg-neutral-950/70 border-neutral-800 hover:border-neutral-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-16 h-10 rounded-lg bg-neutral-900 border border-neutral-700/80 p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
-                          {channel.code === 'GOPAY' ? (
-                            <GopayLogo className="h-7 w-auto" />
-                          ) : (
-                            <DanaLogo className="h-7 w-auto" />
-                          )}
+                    return (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => setSelectedPayment(channel)}
+                        className={`p-3.5 rounded-xl border text-left flex items-center justify-between transition-all ${
+                          isSelected
+                            ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500 shadow-md shadow-blue-600/20'
+                            : 'bg-neutral-950/70 border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 h-10 rounded-lg bg-neutral-900 border border-neutral-700/80 p-1 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                            {channel.code === 'GOPAY' ? (
+                              <GopayLogo className="h-7 w-auto" />
+                            ) : (
+                              <DanaLogo className="h-7 w-auto" />
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold text-white block">{channel.name}</span>
+                            <span className="text-[11px] text-neutral-400">Biaya: {formatIDR(fee)}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-xs font-bold text-white block">{channel.name}</span>
-                          <span className="text-[11px] text-neutral-400">Biaya: {formatIDR(fee)}</span>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-blue-400 font-mono tabular-nums block">
+                            {formatIDR(grandTotal)}
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-semibold">Otomatis</span>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-blue-400 font-mono tabular-nums block">
-                          {formatIDR(grandTotal)}
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-semibold">Otomatis</span>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
 

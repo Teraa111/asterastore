@@ -217,10 +217,10 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
 export const PAYMENT_CHANNELS: PaymentChannel[] = [
   {
     id: 'pay-qris',
-    name: 'QRIS All Payment',
+    name: 'QRIS (Semua E-Wallet & M-Banking)',
     code: 'QRIS',
     group: 'QRIS',
-    feePercent: 0.7,
+    feePercent: 0,
     feeFixed: 0,
     minAmount: 1000,
     iconType: 'qris',
@@ -229,54 +229,11 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
       {
         title: 'Cara Bayar QRIS',
         steps: [
-          'Buka aplikasi e-Wallet (GoPay, DANA, atau mobile banking QRIS apa saja).',
+          'Buka aplikasi e-Wallet (GoPay, DANA, OVO, ShopeePay) atau mobile banking QRIS apa saja (BCA, Mandiri, BRI, BNI, dll).',
           'Pilih menu Scan / Bayar QR.',
           'Scan kode QRIS ASTERA STORE yang tampil di layar atau upload tangkapan layar kode QR.',
           'Pastikan nama merchant "ASTERA STORE" dan total nominal sesuai persis.',
           'Masukkan PIN pembayaran. Data akun atau Diamond akan langsung terkirim otomatis di layar website dalam 1-3 detik!',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'pay-gopay',
-    name: 'GoPay',
-    code: 'GOPAY',
-    group: 'E-Wallet',
-    feePercent: 1.5,
-    feeFixed: 500,
-    minAmount: 5000,
-    iconType: 'gopay',
-    badge: 'E-Wallet',
-    instructions: [
-      {
-        title: 'Cara Bayar GoPay',
-        steps: [
-          'Buka aplikasi Gojek / GoPay di HP Anda.',
-          'Scan QR code ASTERA STORE atau klik link direct payment.',
-          'Pastikan nominal sesuai persis dan konfirmasi pembayaran.',
-          'Verifikasi sidik jari atau masukkan PIN 6 digit GoPay.',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'pay-dana',
-    name: 'DANA E-Wallet',
-    code: 'DANA',
-    group: 'E-Wallet',
-    feePercent: 1.5,
-    feeFixed: 500,
-    minAmount: 5000,
-    iconType: 'dana',
-    badge: 'E-Wallet',
-    instructions: [
-      {
-        title: 'Cara Bayar DANA',
-        steps: [
-          'Scan kode QR DANA ASTERA STORE atau konfirmasi via nomor DANA.',
-          'Login ke akun DANA kamu.',
-          'Konfirmasi nominal pembayaran dan masukkan PIN DANA.',
         ],
       },
     ],
