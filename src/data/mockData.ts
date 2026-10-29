@@ -37,7 +37,7 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
         bonusText: 'Paling Laris',
         isActive: true,
         accountSpec: {
-          level: 'Level 8 (Bisa Ranked)',
+          level: 'Level 3',
           server: 'Server 5701 (Advance Server)',
           heroCount: '8 Hero Starter',
           battlePoints: '12.000+ BP',
