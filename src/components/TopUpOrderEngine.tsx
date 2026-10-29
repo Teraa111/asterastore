@@ -378,6 +378,33 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
       )}
 
       <div className="space-y-8">
+        {/* ================= STEP 1: DESKRIPSI PRODUK (KHUSUS AKUN ADVANCE SERVER) ================= */}
+        {isAccountProduct && (
+          <section className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
+                1
+              </div>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Deskripsi Produk
+              </h2>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-xl bg-neutral-950/80 border border-neutral-800/90 space-y-3.5">
+              <p className="text-neutral-300 text-xs sm:text-sm leading-relaxed">
+                Akun Advance server (Otomatis), Pembeli akan langsung mendapatkan data akun berupa email dan password akun, serta langsung bisa digunakan (setelah pembelian akun akan jadi milik kalian sepenuhnya), Cara Login bisa chek kode ke web mail.tm lalu masukkan email dan password yang didapatkan sebelumnya
+              </p>
+
+              <div className="pt-3 border-t border-neutral-800/80 flex items-start gap-2.5 text-xs sm:text-[13px] text-amber-400 font-medium leading-relaxed">
+                <span className="shrink-0 text-base leading-none">⚠️</span>
+                <p>
+                  Pastikan Nomor WhatsApp yang digunakan aktif untuk pengiriman detail Akun dan Akun yang sudah dibeli tidak dapat dikembalikan. Hubungi customer service jika mengalami kendala.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ================= STEP 1: INPUT DATA (FOR BB COIN ONLY) ================= */}
         {!isAccountProduct && (
           <section className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 shadow-md">
@@ -536,7 +563,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
         <section className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 shadow-md">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
-              {isAccountProduct ? '1' : '2'}
+              2
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">
@@ -761,7 +788,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
         <section className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 shadow-md">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
-              {isAccountProduct ? '2' : '3'}
+              3
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">
@@ -872,7 +899,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
         <section className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 shadow-md">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
-              {isAccountProduct ? '3' : '4'}
+              4
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">
@@ -924,7 +951,7 @@ export const TopUpOrderEngine: React.FC<TopUpOrderEngineProps> = ({
         <section className="bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 shadow-md">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-blue-600/30">
-              {isAccountProduct ? '4' : '5'}
+              5
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">

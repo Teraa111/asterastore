@@ -24,7 +24,7 @@ export const INITIAL_PRODUCTS: ProductCatalog[] = [
       {
         id: 'acc-advance-fresh',
         gameId: 'mlbb-advance-server',
-        name: 'Akun Advance Server Fresh (Level 8)',
+        name: 'Akun Advance Server Fresh (Level 3)',
         category: 'Account Tiers',
         nominalValue: 1,
         unit: 'Akun',

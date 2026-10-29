@@ -133,7 +133,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   const [newAccEmail, setNewAccEmail] = useState('');
   const [newAccPassword, setNewAccPassword] = useState('');
   const [newAccServer, setNewAccServer] = useState('Server 5701 (Advance Server)');
-  const [newAccLevel, setNewAccLevel] = useState(8);
+  const [newAccLevel, setNewAccLevel] = useState(3);
   const [newAccNotes, setNewAccNotes] = useState('Akun Advance Server siap pakai.');
 
   const [editingItem, setEditingItem] = useState<{ productId: string; item: DenominationItem } | null>(null);
