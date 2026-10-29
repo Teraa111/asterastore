@@ -296,6 +296,13 @@ BEGIN
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'account_vault'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.account_vault;
+  END IF;
 END $$;
 `;
 
@@ -352,7 +359,8 @@ export async function checkSupabaseStatus(): Promise<{
 
 /**
  * Fetch all public products with real-time stock counts from Supabase.
- * Does NOT contain sensitive credentials (email/password).
+ * For advance server accounts, also enriches denominations with unsold credentials
+ * from the protected account_vault so all admin browsers see accurate stock and credentials.
  */
 export async function fetchProductsFromSupabase(): Promise<ProductCatalog[] | null> {
   if (!supabase) return null;
@@ -368,21 +376,51 @@ export async function fetchProductsFromSupabase(): Promise<ProductCatalog[] | nu
     }
 
     if (data && data.length > 0) {
+      // Fetch unsold accounts from account_vault to keep accountPool & stock synchronized across devices
+      let vaultGroup: Record<string, AccountCredential[]> = {};
+      try {
+        const vg = await fetchVaultAccountsGroupedSupabase();
+        if (vg) vaultGroup = vg;
+      } catch {}
+
       // Map database row back to ProductCatalog
-      return data.map((row: any) => ({
-        id: row.id,
-        type: row.id.includes('bbcoin') ? 'bbcoin_diamond' : 'advance_account',
-        title: row.title,
-        subtitle: row.subtitle || '',
-        publisher: 'Moonton',
-        badge: row.badge || 'Official Reseller',
-        coverImage: row.cover_image || '',
-        shortDesc: row.short_desc || '',
-        needPlayerId: row.id.includes('bbcoin'),
-        needZoneId: row.id.includes('bbcoin'),
-        isActive: row.is_active ?? true,
-        denominations: Array.isArray(row.denominations) ? row.denominations : [],
-      }));
+      return data.map((row: any) => {
+        const isAdvance = row.id === 'mlbb-advance-server' || !row.id.includes('bbcoin');
+        const rawDenoms = Array.isArray(row.denominations) ? row.denominations : [];
+
+        const enrichedDenoms = rawDenoms.map((d: any) => {
+          if (d.stockType === 'account_pool' || isAdvance) {
+            const vaultAccounts = vaultGroup[d.id] || [];
+            // If vault has accounts, use them; otherwise retain existing accountPool if any
+            const finalPool = vaultAccounts.length > 0 ? vaultAccounts : (Array.isArray(d.accountPool) ? d.accountPool : []);
+            const finalStock = vaultAccounts.length > 0 
+              ? vaultAccounts.length 
+              : (typeof d.stockCount === 'number' && d.stockCount >= 0 ? d.stockCount : finalPool.length);
+
+            return {
+              ...d,
+              accountPool: finalPool,
+              stockCount: finalStock,
+            };
+          }
+          return d;
+        });
+
+        return {
+          id: row.id,
+          type: row.id.includes('bbcoin') ? 'bbcoin_diamond' : 'advance_account',
+          title: row.title,
+          subtitle: row.subtitle || '',
+          publisher: 'Moonton',
+          badge: row.badge || 'Official Reseller',
+          coverImage: row.cover_image || '',
+          shortDesc: row.short_desc || '',
+          needPlayerId: row.id.includes('bbcoin'),
+          needZoneId: row.id.includes('bbcoin'),
+          isActive: row.is_active ?? true,
+          denominations: enrichedDenoms,
+        };
+      });
     }
     return null;
   } catch (err) {
@@ -523,6 +561,48 @@ export function subscribeToProductsSupabase(
 }
 
 /**
+ * Helper to recalculate unsold stock count for a denomination and persist it to products table in Supabase
+ */
+export async function syncDenomStockToSupabaseProducts(
+  denomId: string,
+  productId = 'mlbb-advance-server'
+): Promise<void> {
+  if (!supabase || !denomId) return;
+  try {
+    const { count, error } = await supabase
+      .from('account_vault')
+      .select('*', { count: 'exact', head: true })
+      .eq('denomination_id', denomId)
+      .eq('is_sold', false);
+
+    if (error || typeof count !== 'number') return;
+
+    // Get current product denominations
+    const { data: prodRow } = await supabase
+      .from('products')
+      .select('denominations')
+      .eq('id', productId)
+      .maybeSingle();
+
+    if (prodRow && Array.isArray(prodRow.denominations)) {
+      const updatedDenoms = prodRow.denominations.map((d: any) => {
+        if (d.id === denomId) {
+          return { ...d, stockCount: count };
+        }
+        return d;
+      });
+
+      await supabase
+        .from('products')
+        .update({ denominations: updatedDenoms, updated_at: new Date().toISOString() })
+        .eq('id', productId);
+    }
+  } catch (err) {
+    console.warn('syncDenomStockToSupabaseProducts note:', err);
+  }
+}
+
+/**
  * Vault functions: Add single account credential to protected account_vault table
  */
 export async function addAccountToVaultSupabase(
@@ -535,10 +615,10 @@ export async function addAccountToVaultSupabase(
     const { error } = await supabase.from('account_vault').insert({
       denomination_id: denomId,
       product_id: productId,
-      email: account.email,
-      password: account.password,
-      server_info: account.serverInfo,
-      bind_type: account.bindType,
+      email: account.email.trim(),
+      password: account.password.trim(),
+      server_info: account.serverInfo || 'Server 5701 (Advance Server)',
+      bind_type: account.bindType || 'Moonton Sepaket Email',
       level: account.level || 8,
       notes: account.notes || '',
       is_sold: false,
@@ -548,6 +628,9 @@ export async function addAccountToVaultSupabase(
       console.error('Failed to add account to Supabase vault:', error.message);
       return false;
     }
+
+    // Automatically update stock count in Supabase products table
+    syncDenomStockToSupabaseProducts(denomId, productId).catch(() => {});
     return true;
   } catch (err) {
     console.error('Error in addAccountToVaultSupabase:', err);
@@ -590,6 +673,48 @@ export async function fetchVaultAccountsSupabase(denomId?: string): Promise<Acco
 }
 
 /**
+ * Fetch all unsold accounts from Supabase account_vault grouped by denomination_id
+ * Ensures every browser/device can reconstruct the exact accountPool
+ */
+export async function fetchVaultAccountsGroupedSupabase(): Promise<Record<string, AccountCredential[]> | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('account_vault')
+      .select('*')
+      .eq('is_sold', false)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase fetch vault grouped note:', error.message);
+      return null;
+    }
+
+    const grouped: Record<string, AccountCredential[]> = {};
+    for (const row of data || []) {
+      const denomId = row.denomination_id;
+      if (!denomId) continue;
+      if (!grouped[denomId]) grouped[denomId] = [];
+      grouped[denomId].push({
+        id: row.id || `acc-${row.email}`,
+        email: row.email,
+        password: row.password,
+        serverInfo: row.server_info || 'Server 5701 (Advance Server)',
+        bindType: row.bind_type || 'Moonton Sepaket Email',
+        level: Number(row.level) || 8,
+        notes: row.notes || '',
+        isSold: false,
+        createdAt: row.created_at || new Date().toISOString(),
+      });
+    }
+    return grouped;
+  } catch (err) {
+    console.error('Error fetching vault accounts grouped from Supabase:', err);
+    return null;
+  }
+}
+
+/**
  * Atomic fulfillment via PostgreSQL stored function:
  * Locks exactly 1 available account with FOR UPDATE SKIP LOCKED,
  * marks it sold, and returns credentials to Admin.
@@ -622,20 +747,154 @@ export async function fulfillOrderAtomicSupabase(
 }
 
 /**
- * Remove/delete a delivered account permanently from Supabase account_vault
+ * Remove/delete an account permanently from Supabase account_vault and recalculate stock
  */
 export async function deleteAccountFromVaultSupabase(email: string): Promise<boolean> {
   if (!supabase || !email) return false;
   try {
-    const { error } = await supabase.from('account_vault').delete().eq('email', email.trim());
+    const cleanEmail = email.trim();
+    // Retrieve denomination_id first so we can sync product stockCount
+    let denomId: string | null = null;
+    const { data } = await supabase
+      .from('account_vault')
+      .select('denomination_id')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (data?.denomination_id) {
+      denomId = data.denomination_id;
+    }
+
+    const { error } = await supabase.from('account_vault').delete().eq('email', cleanEmail);
     if (error) {
       console.warn('Delete from Supabase vault warning:', error.message);
       return false;
+    }
+
+    if (denomId) {
+      syncDenomStockToSupabaseProducts(denomId).catch(() => {});
     }
     return true;
   } catch (err) {
     console.warn('Error in deleteAccountFromVaultSupabase:', err);
     return false;
+  }
+}
+
+/**
+ * Update an account credential in Supabase account_vault
+ */
+export async function updateAccountInVaultSupabase(
+  oldEmail: string,
+  updates: Partial<AccountCredential>,
+  newDenomId?: string
+): Promise<boolean> {
+  if (!supabase || !oldEmail) return false;
+  try {
+    const cleanOldEmail = oldEmail.trim();
+    const payload: any = {};
+    if (updates.email) payload.email = updates.email.trim();
+    if (updates.password) payload.password = updates.password.trim();
+    if (updates.serverInfo !== undefined) payload.server_info = updates.serverInfo.trim();
+    if (updates.bindType !== undefined) payload.bind_type = updates.bindType.trim();
+    if (updates.level !== undefined) payload.level = Number(updates.level);
+    if (updates.notes !== undefined) payload.notes = updates.notes.trim();
+    if (newDenomId) payload.denomination_id = newDenomId;
+
+    const { error } = await supabase
+      .from('account_vault')
+      .update(payload)
+      .eq('email', cleanOldEmail);
+
+    if (error) {
+      console.warn('Update in Supabase vault warning:', error.message);
+      return false;
+    }
+
+    if (newDenomId) {
+      syncDenomStockToSupabaseProducts(newDenomId).catch(() => {});
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error in updateAccountInVaultSupabase:', err);
+    return false;
+  }
+}
+
+/**
+ * Realtime subscription for Supabase account_vault updates across all devices
+ */
+export function subscribeToVaultSupabase(onUpdate: () => void): (() => void) | null {
+  const client = supabase;
+  if (!client) return null;
+
+  try {
+    const channelName = `vault-sync-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const channel = client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'account_vault' },
+        () => {
+          onUpdate();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn(`Supabase Realtime channel ${channelName} note.`);
+        }
+      });
+
+    return () => {
+      try {
+        client.removeChannel(channel);
+      } catch (err) {
+        console.warn('Error removing vault channel:', err);
+      }
+    };
+  } catch (err) {
+    console.error('Error creating Supabase vault realtime channel:', err);
+    return null;
+  }
+}
+
+/**
+ * Realtime subscription for Supabase orders updates across all devices
+ */
+export function subscribeToOrdersSupabase(onUpdate: (orders: Order[]) => void): (() => void) | null {
+  const client = supabase;
+  if (!client) return null;
+
+  try {
+    const channelName = `orders-sync-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const channel = client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        async () => {
+          const fresh = await fetchOrdersFromSupabase();
+          if (fresh && fresh.length > 0) {
+            onUpdate(fresh);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn(`Supabase Realtime channel ${channelName} note.`);
+        }
+      });
+
+    return () => {
+      try {
+        client.removeChannel(channel);
+      } catch (err) {
+        console.warn('Error removing orders channel:', err);
+      }
+    };
+  } catch (err) {
+    console.error('Error creating Supabase orders realtime channel:', err);
+    return null;
   }
 }
 

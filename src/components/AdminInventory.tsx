@@ -34,6 +34,8 @@ import {
 import {
   isSupabaseConfigured,
   addAccountToVaultSupabase,
+  deleteAccountFromVaultSupabase,
+  updateAccountInVaultSupabase,
   checkSupabaseStatus,
   SUPABASE_SETUP_SQL,
   getSupabaseConfig,
@@ -397,7 +399,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     setNewAccEmail('');
     setNewAccPassword('');
     setShowAddAccountModal(false);
-    showToast('Akun baru berhasil disimpan ke brankas database cloud Firestore!', 'success');
+    showToast('Akun baru berhasil disimpan ke brankas database Supabase!', 'success');
   };
 
   // Open Edit Account Modal (Ubah email, password, server, level jika salah ketik)
@@ -484,8 +486,16 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
     saveProducts(updated);
     setProducts(updated);
+
+    // Sync edit to Supabase account_vault
+    if (isSupabaseConfigured()) {
+      updateAccountInVaultSupabase(editingAccount.account.email, updatedAccount, targetDenomId).catch((err) => {
+        console.warn('Sync edit to Supabase vault note:', err);
+      });
+    }
+
     setEditingAccount(null);
-    showToast(`✅ Kredensial akun (${cleanEmail}) berhasil diperbarui!`, 'success');
+    showToast(`✅ Kredensial akun (${cleanEmail}) berhasil diperbarui di database Supabase!`, 'success');
   };
 
   // Delete Account from Pool
@@ -514,10 +524,18 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
     saveProducts(updated);
     setProducts(updated);
+
+    // Delete permanently from Supabase account_vault
+    if (isSupabaseConfigured()) {
+      deleteAccountFromVaultSupabase(email).catch((err) => {
+        console.warn('Delete from Supabase vault note:', err);
+      });
+    }
+
     if (editingAccount?.account.id === accountId) {
       setEditingAccount(null);
     }
-    showToast(`Akun (${email}) berhasil dihapus dari brankas stok.`, 'warning');
+    showToast(`Akun (${email}) berhasil dihapus dari brankas stok database Supabase.`, 'warning');
   };
 
   // Quick Copy Helper

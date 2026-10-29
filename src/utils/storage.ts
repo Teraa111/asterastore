@@ -37,6 +37,10 @@ import {
   getOrderFromSupabase,
   deleteOrderFromSupabase,
   deleteAllOrdersFromSupabase,
+  fetchVaultAccountsGroupedSupabase,
+  updateAccountInVaultSupabase,
+  subscribeToVaultSupabase,
+  subscribeToOrdersSupabase,
 } from './supabase';
 
 const STORAGE_KEYS = {
@@ -370,11 +374,32 @@ export async function syncAllProductsToCloud(products: ProductCatalog[]): Promis
 }
 
 /**
- * Synchronize the entire account credentials vault directly from Firestore Cloud Database
+ * Synchronize the entire account credentials vault directly from Supabase Cloud Database (with Firestore fallback)
  */
 export async function syncAccountVaultFromCloud(): Promise<void> {
   try {
-    const cloudVault = await fetchAccountVaultFromCloud();
+    let cloudVault: Record<string, AccountCredential[]> | null = null;
+
+    // 1. Supabase (Primary Source of Truth)
+    try {
+      const sbVault = await fetchVaultAccountsGroupedSupabase();
+      if (sbVault && typeof sbVault === 'object') {
+        cloudVault = sbVault;
+      }
+    } catch (sbErr) {
+      console.warn('Supabase vault sync note:', sbErr);
+    }
+
+    // 2. Secondary fallback to Firestore
+    if (!cloudVault) {
+      try {
+        const firestoreVault = await fetchAccountVaultFromCloud();
+        if (firestoreVault && typeof firestoreVault === 'object') {
+          cloudVault = firestoreVault;
+        }
+      } catch {}
+    }
+
     if (cloudVault && typeof cloudVault === 'object') {
       const local = loadProductsLocal();
       let hasChanges = false;
@@ -383,13 +408,18 @@ export async function syncAccountVaultFromCloud(): Promise<void> {
         return {
           ...p,
           denominations: p.denominations.map((d) => {
-            const vaultAccounts = cloudVault[d.id];
+            const vaultAccounts = cloudVault![d.id];
             if (Array.isArray(vaultAccounts)) {
-              hasChanges = true;
+              const currentPool = d.accountPool || [];
+              const diffCount = currentPool.length !== vaultAccounts.length;
+              const diffStock = d.stockCount !== vaultAccounts.length;
+              if (diffCount || diffStock) {
+                hasChanges = true;
+              }
               return {
                 ...d,
                 accountPool: vaultAccounts,
-                stockCount: vaultAccounts.filter((a) => !a.isSold).length,
+                stockCount: vaultAccounts.length,
               };
             }
             return d;
@@ -457,7 +487,7 @@ export function applyCloudProductsUpdate(cloudProducts: ProductCatalog[]) {
   }
 }
 
-// 1. Real-time listener from Supabase (PostgreSQL Realtime)
+// 1. Real-time listeners from Supabase (PostgreSQL Realtime - Primary)
 if (typeof window !== 'undefined') {
   try {
     subscribeToProductsSupabase((cloudProducts) => {
@@ -467,7 +497,42 @@ if (typeof window !== 'undefined') {
     console.warn('Real-time Supabase product listener init:', err);
   }
 
-  // 2. Real-time listener from Firestore (Firebase Cloud)
+  // Real-time Supabase account credentials vault listener
+  try {
+    subscribeToVaultSupabase(() => {
+      syncAccountVaultFromCloud().catch(() => {});
+    });
+  } catch (err) {
+    console.warn('Real-time Supabase vault listener init:', err);
+  }
+
+  // Real-time Supabase orders listener for Admin
+  try {
+    subscribeToOrdersSupabase((cloudOrders) => {
+      if (!isAdminSession()) return;
+      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+        const local = loadOrdersLocal();
+        const map = new Map<string, Order>();
+        for (const o of local) map.set(o.id, o);
+        for (const o of cloudOrders) map.set(o.id, o);
+
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        const currentRaw = localStorage.getItem(STORAGE_KEYS.ORDERS);
+        const newRaw = JSON.stringify(merged);
+        if (currentRaw !== newRaw) {
+          localStorage.setItem(STORAGE_KEYS.ORDERS, newRaw);
+          window.dispatchEvent(new Event('storeadv_orders_updated'));
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Real-time Supabase order listener init:', err);
+  }
+
+  // 2. Real-time listeners from Firestore (Firebase Cloud - Secondary)
   try {
     subscribeToProductsCloud((cloudProducts) => {
       applyCloudProductsUpdate(cloudProducts);
@@ -477,11 +542,10 @@ if (typeof window !== 'undefined') {
   }
 }
 
-
 // Background sync promise flag
 let isSyncing = false;
 
-// Setup real-time listener from Firestore ONLY for authenticated Admin
+// Setup real-time listener from Firestore ONLY for authenticated Admin (secondary)
 if (typeof window !== 'undefined') {
   try {
     subscribeToOrdersCloud((cloudOrders) => {
