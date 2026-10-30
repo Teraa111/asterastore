@@ -13,6 +13,7 @@ import { AdminInventory } from './components/AdminInventory';
 import { AdminAuthModal } from './components/AdminAuthModal';
 import { MlCalculatorModal } from './components/MlCalculatorModal';
 import { Footer } from './components/Footer';
+import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
 import { Sparkles, Key, Coins, ShieldCheck, Zap, Receipt, ExternalLink, X } from 'lucide-react';
 
 export default function App() {
@@ -362,6 +363,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Floating WhatsApp Customer Support Button (Bottom Left) */}
+      <WhatsAppFloatingButton />
     </div>
   );
 }
