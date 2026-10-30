@@ -16,6 +16,15 @@
     <meta name="robots" content="index, follow" />
     <meta name="google-site-verification" content="M7KSjrvySL0s0M7UOQlMwtXvb2ztKcYZ8Ka7n1fe97g" />
     <meta name="google-site-verification" content="-RBDMmDLDbjVg8xGcI0Lp8aOMuYOsIldXjD1MOukoBY" />
+    <!-- Favicon & App Icons (Standard Google Search & Mobile Sizes) -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
     <!-- OpenGraph Social Sharing (Facebook, WhatsApp, Discord, Telegram) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="ASTERA STORE" />
@@ -24,6 +33,11 @@
       property="og:description"
       content="ASTERA STORE: Toko spesialis Mobile Legends: Beli Akun Advance Server siap pakai dan Top Up Diamond hemat via BB Coin resmi Moonton. Jam operasional tutup jam 10 malam."
     />
+    <meta property="og:url" content="https://astral-store-b45.pages.dev/" />
+    <meta property="og:image" content="https://astral-store-b45.pages.dev/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ASTERA STORE Logo" />
     <meta property="og:locale" content="id_ID" />
 
     <!-- Twitter / X Card -->
@@ -34,6 +48,7 @@
       name="twitter:description"
       content="ASTERA STORE: Toko resmi Akun MLBB Advance Server siap pakai & Top Up Diamond BB Coin termurah, bergaransi, dan kirim instan (Tutup 10 malam)."
     />
+    <meta name="twitter:image" content="https://astral-store-b45.pages.dev/og-image.jpg" />
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -43,40 +58,70 @@
       rel="stylesheet"
     />
 
-    <!-- Google Search Structured Data (JSON-LD) -->
+    <!-- Google Search Structured Data (JSON-LD) for Site Name & Logo Snippets -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "OnlineStore",
-      "name": "ASTERA STORE",
-      "alternateName": ["Astera", "Astera Store", "Astera Store Mobile Legends", "ASTERA Gaming Store"],
-      "description": "Toko spesialis resmi Mobile Legends Advance Server dan Top Up Diamond BB Coin bergaransi resmi.",
-      "currenciesAccepted": "IDR",
-      "paymentAccepted": "QRIS, GoPay, DANA",
-      "openingHours": "Mo-Su 09:00-22:00",
-      "areaServed": "ID",
-      "hasOfferCatalog": {
-        "@type": "OfferCatalog",
-        "name": "Layanan ASTERA STORE",
-        "itemListElement": [
-          {
-            "@type": "Offer",
-            "itemOffered": {
-              "@type": "Product",
-              "name": "Akun Mobile Legends Advance Server Siap Pakai",
-              "description": "Akun Advance Server resmi server 5700+ dengan pengiriman kredensial email & password instan di website."
-            }
-          },
-          {
-            "@type": "Offer",
-            "itemOffered": {
-              "@type": "Product",
-              "name": "Top Up Diamond Advance Server via BB Coin",
-              "description": "Top Up Diamond resmi via konversi Bang Bang Coin Moonton dengan auto-konversi instan rasio 5:1."
-            }
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://astral-store-b45.pages.dev/#website",
+          "name": "ASTERA STORE",
+          "alternateName": [
+            "Astera Store",
+            "ASTERA",
+            "Store Adv",
+            "Astera Store Advance",
+            "ASTERA Gaming Store"
+          ],
+          "url": "https://astral-store-b45.pages.dev/"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://astral-store-b45.pages.dev/#organization",
+          "name": "ASTERA STORE",
+          "url": "https://astral-store-b45.pages.dev/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://astral-store-b45.pages.dev/favicon.png",
+            "width": 192,
+            "height": 192
           }
-        ]
-      }
+        },
+        {
+          "@type": "OnlineStore",
+          "@id": "https://astral-store-b45.pages.dev/#store",
+          "name": "ASTERA STORE",
+          "url": "https://astral-store-b45.pages.dev/",
+          "description": "Toko spesialis resmi Mobile Legends Advance Server dan Top Up Diamond BB Coin bergaransi resmi.",
+          "currenciesAccepted": "IDR",
+          "paymentAccepted": "QRIS",
+          "openingHours": "Mo-Su 09:00-22:00",
+          "areaServed": "ID",
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "Layanan ASTERA STORE",
+            "itemListElement": [
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Akun Mobile Legends Advance Server Siap Pakai",
+                  "description": "Akun Advance Server resmi server 5700+ dengan pengiriman kredensial email & password instan di website."
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Top Up Diamond Advance Server via BB Coin",
+                  "description": "Top Up Diamond resmi via konversi Bang Bang Coin Moonton dengan auto-konversi instan rasio 5:1."
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
     </script>
   </head>
