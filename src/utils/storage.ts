@@ -24,6 +24,10 @@ import {
   subscribeToAccountVaultCloud,
   deleteOrderFromCloud,
   deleteAllOrdersFromCloud,
+  saveDeletedOrderIdToCloud,
+  saveOrdersResetToCloud,
+  fetchDeletedOrdersFromCloud,
+  subscribeToDeletedOrdersCloud,
 } from './firebase';
 import {
   fetchProductsFromSupabase,
@@ -49,7 +53,25 @@ const STORAGE_KEYS = {
   PROMOS: 'storeadv_promos_v3',
   MY_ORDER_IDS: 'storeadv_my_order_ids_v1',
   DELETED_ORDER_IDS: 'storeadv_deleted_order_ids_v2',
+  LAST_ORDERS_RESET: 'storeadv_orders_last_reset_v1',
 };
+
+export function getLastResetTimestamp(): number {
+  try {
+    return Number(localStorage.getItem(STORAGE_KEYS.LAST_ORDERS_RESET)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setLastResetTimestamp(ts: number): void {
+  try {
+    const current = getLastResetTimestamp();
+    if (ts > current) {
+      localStorage.setItem(STORAGE_KEYS.LAST_ORDERS_RESET, String(ts));
+    }
+  } catch {}
+}
 
 export function getDeletedOrderIds(): Set<string> {
   try {
@@ -77,6 +99,63 @@ export function addAllDeletedOrderIds(orderIds: string[]): void {
     }
     localStorage.setItem(STORAGE_KEYS.DELETED_ORDER_IDS, JSON.stringify(Array.from(set)));
   } catch {}
+}
+
+export function purgeDeletedOrdersFromLocal(): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    if (!raw) return;
+    const orders: Order[] = JSON.parse(raw);
+    const deletedIds = getDeletedOrderIds();
+    const lastResetAt = getLastResetTimestamp();
+    const filtered = orders.filter((o) => {
+      if (!o?.id || deletedIds.has(o.id.trim())) return false;
+      if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) return false;
+      return true;
+    });
+    if (filtered.length !== orders.length) {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
+      window.dispatchEvent(new Event('storeadv_orders_updated'));
+    }
+  } catch {}
+}
+
+export async function syncDeletedOrderIdsFromCloud(): Promise<void> {
+  try {
+    // 1. Fetch from Firestore config
+    const cloudDeleted = await fetchDeletedOrdersFromCloud();
+    let updated = false;
+    if (cloudDeleted.deletedIds && cloudDeleted.deletedIds.length > 0) {
+      addAllDeletedOrderIds(cloudDeleted.deletedIds);
+      updated = true;
+    }
+    if (cloudDeleted.lastResetAt && cloudDeleted.lastResetAt > getLastResetTimestamp()) {
+      setLastResetTimestamp(cloudDeleted.lastResetAt);
+      updated = true;
+    }
+
+    // 2. Fetch from Express /api/orders/deleted-ids
+    try {
+      const res = await fetch('/api/orders/deleted-ids');
+      if (res.ok) {
+        const srvData = await res.json();
+        if (Array.isArray(srvData?.deletedIds) && srvData.deletedIds.length > 0) {
+          addAllDeletedOrderIds(srvData.deletedIds);
+          updated = true;
+        }
+        if (srvData?.lastResetAt && srvData.lastResetAt > getLastResetTimestamp()) {
+          setLastResetTimestamp(srvData.lastResetAt);
+          updated = true;
+        }
+      }
+    } catch {}
+
+    if (updated) {
+      purgeDeletedOrdersFromLocal();
+    }
+  } catch (err) {
+    console.warn('syncDeletedOrderIdsFromCloud note:', err);
+  }
 }
 
 // Cleanup old mock keys
@@ -574,25 +653,42 @@ if (typeof window !== 'undefined') {
 // Background sync promise flag
 let isSyncing = false;
 
-// Setup real-time listener from Firestore ONLY for authenticated Admin (secondary)
+// Setup real-time listener from Firestore for deleted orders & active orders
 if (typeof window !== 'undefined') {
+  try {
+    subscribeToDeletedOrdersCloud((info) => {
+      let changed = false;
+      if (info.deletedIds && info.deletedIds.length > 0) {
+        addAllDeletedOrderIds(info.deletedIds);
+        changed = true;
+      }
+      if (info.lastResetAt && info.lastResetAt > getLastResetTimestamp()) {
+        setLastResetTimestamp(info.lastResetAt);
+        changed = true;
+      }
+      if (changed) {
+        purgeDeletedOrdersFromLocal();
+      }
+    });
+  } catch (err) {
+    console.warn('Real-time deleted orders listener warning:', err);
+  }
+
   try {
     subscribeToOrdersCloud((cloudOrders) => {
       // Only process global cloud orders if user is Admin
       if (!isAdminSession()) return;
-      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+      if (Array.isArray(cloudOrders)) {
         const deletedIds = getDeletedOrderIds();
-        const local = loadOrdersLocal();
-        const map = new Map<string, Order>();
-        for (const o of local) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
-        for (const o of cloudOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
-
-        const merged = Array.from(map.values()).sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+        const lastResetAt = getLastResetTimestamp();
+        const activeCloud = cloudOrders.filter((o) => {
+          if (!o?.id || deletedIds.has(o.id.trim())) return false;
+          if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) return false;
+          return true;
+        });
 
         const currentRaw = localStorage.getItem(STORAGE_KEYS.ORDERS);
-        const newRaw = JSON.stringify(merged);
+        const newRaw = JSON.stringify(activeCloud);
         if (currentRaw !== newRaw) {
           localStorage.setItem(STORAGE_KEYS.ORDERS, newRaw);
           window.dispatchEvent(new Event('storeadv_orders_updated'));
@@ -627,10 +723,19 @@ export async function fetchMyOrdersFromServer(): Promise<Order[]> {
 
     if (updatedMyOrders.length > 0) {
       const deletedIds = getDeletedOrderIds();
+      const lastResetAt = getLastResetTimestamp();
       const local = loadOrdersLocal();
       const map = new Map<string, Order>();
-      for (const o of local) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
-      for (const o of updatedMyOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+      for (const o of local) {
+        if (!o?.id || deletedIds.has(o.id.trim())) continue;
+        if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+        map.set(o.id.trim(), o);
+      }
+      for (const o of updatedMyOrders) {
+        if (!o?.id || deletedIds.has(o.id.trim())) continue;
+        if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+        map.set(o.id.trim(), o);
+      }
       localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(Array.from(map.values())));
       window.dispatchEvent(new Event('storeadv_orders_updated'));
     }
@@ -652,40 +757,83 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
   if (isSyncing) return loadOrdersLocal();
   isSyncing = true;
   try {
-    // 1. Fetch from Supabase Cloud Database (Primary cross-device source of truth)
+    // 1. Sync deleted order IDs and full reset timestamp from Cloud & Server first
+    await syncDeletedOrderIdsFromCloud();
+
+    // 2. Fetch from Supabase Cloud Database (Primary cross-device source of truth)
     let supabaseOrders: Order[] = [];
-    try {
-      supabaseOrders = await fetchOrdersFromSupabase();
-    } catch (err) {
-      console.warn('Supabase fetchOrders warning:', err);
+    if (isSupabaseConfigured()) {
+      try {
+        supabaseOrders = await fetchOrdersFromSupabase();
+      } catch (err) {
+        console.warn('Supabase fetchOrders warning:', err);
+      }
     }
 
-    // 2. Fetch from Firestore Cloud Database (Secondary cross-device)
+    // 3. Fetch from Firestore Cloud Database (Secondary cross-device)
     let cloudOrders: Order[] = [];
+    let cloudConnected = false;
     try {
       cloudOrders = await fetchOrdersFromCloud();
+      cloudConnected = true;
     } catch (err) {
       console.warn('Firestore fetchOrders warning:', err);
     }
 
-    // 3. Fetch from Express /api/orders (if available)
+    // 4. Fetch from Express /api/orders (if available)
     let serverOrders: Order[] = [];
+    let serverConnected = false;
     try {
       const res = await fetch('/api/orders');
       if (res.ok) {
         serverOrders = await res.json();
+        serverConnected = true;
       }
     } catch {
       // offline / static hosting
     }
 
     const deletedIds = getDeletedOrderIds();
+    const lastResetAt = getLastResetTimestamp();
     const local = loadOrdersLocal();
+
     const map = new Map<string, Order>();
-    for (const o of local) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
-    for (const o of serverOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
-    for (const o of cloudOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
-    for (const o of supabaseOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+    // Cloud and server orders are authoritative
+    for (const o of serverOrders) {
+      if (!o?.id || deletedIds.has(o.id.trim())) continue;
+      if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+      map.set(o.id.trim(), o);
+    }
+    for (const o of cloudOrders) {
+      if (!o?.id || deletedIds.has(o.id.trim())) continue;
+      if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+      map.set(o.id.trim(), o);
+    }
+    for (const o of supabaseOrders) {
+      if (!o?.id || deletedIds.has(o.id.trim())) continue;
+      if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+      map.set(o.id.trim(), o);
+    }
+
+    // When online, ONLY preserve local orders created very recently (< 45s) on this device that are pending sync.
+    // Any older local order that does not exist in the database/server was deleted and must be pruned!
+    const isOnline = cloudConnected || serverConnected || supabaseOrders.length > 0;
+    if (!isOnline) {
+      for (const o of local) {
+        if (!o?.id || deletedIds.has(o.id.trim())) continue;
+        if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+        map.set(o.id.trim(), o);
+      }
+    } else {
+      for (const o of local) {
+        if (!o?.id || deletedIds.has(o.id.trim())) continue;
+        if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) continue;
+        const ageMs = Date.now() - new Date(o.createdAt).getTime();
+        if (ageMs < 45000 && !map.has(o.id.trim())) {
+          map.set(o.id.trim(), o);
+        }
+      }
+    }
 
     const merged = Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -714,7 +862,12 @@ export function loadOrdersLocal(): Order[] {
     }
     const parsed: Order[] = JSON.parse(raw);
     const deletedIds = getDeletedOrderIds();
-    return parsed.filter((o) => o?.id && !deletedIds.has(o.id.trim()));
+    const lastResetAt = getLastResetTimestamp();
+    return parsed.filter((o) => {
+      if (!o?.id || deletedIds.has(o.id.trim())) return false;
+      if (lastResetAt && new Date(o.createdAt).getTime() <= lastResetAt) return false;
+      return true;
+    });
   } catch {
     return [];
   }
@@ -1296,12 +1449,22 @@ export async function adminDeleteOrder(orderId: string): Promise<boolean> {
     console.warn('Error deleting order from Firestore:', err);
   }
 
-  // 6. Hapus dari backend Express jika aktif
+  // 6. Catat ke Firestore deleted_orders config agar browser lain otomatis membersihkan pesanan ini
   try {
-    await fetch(`/api/orders/${cleanId}`, { method: 'DELETE' });
+    await saveDeletedOrderIdToCloud(cleanId);
   } catch {}
 
-  // 7. Dispatch event pembaruan
+  // 7. Hapus dari backend Express jika aktif & simpan ke server deleted_orders
+  try {
+    await fetch(`/api/orders/${cleanId}`, { method: 'DELETE' });
+    await fetch('/api/orders/deleted-ids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: cleanId }),
+    });
+  } catch {}
+
+  // 8. Dispatch event pembaruan
   window.dispatchEvent(new Event('storeadv_orders_updated'));
   return true;
 }
@@ -1311,9 +1474,13 @@ export async function adminDeleteOrder(orderId: string): Promise<boolean> {
  * Menghapus seluruh riwayat transaksi dari database cloud Supabase, Firestore, dan cache lokal.
  */
 export async function adminDeleteAllOrders(): Promise<boolean> {
+  const resetTs = Date.now();
+  setLastResetTimestamp(resetTs);
+
   // 1. Blacklist seluruh ID pesanan yang ada saat ini
   const currentOrders = loadOrdersLocal();
-  addAllDeletedOrderIds(currentOrders.map((o) => o.id));
+  const allIds = currentOrders.map((o) => o?.id).filter(Boolean);
+  addAllDeletedOrderIds(allIds);
 
   // 2. Simpan array kosong ke localStorage
   try {
@@ -1335,12 +1502,22 @@ export async function adminDeleteAllOrders(): Promise<boolean> {
     console.warn('Error clearing all orders from Firestore:', err);
   }
 
-  // 5. Hapus dari backend Express jika aktif
+  // 5. Simpan reset timestamp & deleted IDs ke Firestore agar SEMUA browser lain otomatis membersihkan pesanan
   try {
-    await fetch('/api/orders', { method: 'DELETE' });
+    await saveOrdersResetToCloud(resetTs, allIds);
   } catch {}
 
-  // 6. Pastikan kembali localStorage tetap kosong
+  // 6. Hapus dari backend Express jika aktif & kirim reset ke server
+  try {
+    await fetch('/api/orders', { method: 'DELETE' });
+    await fetch('/api/orders/deleted-ids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true, ids: allIds, resetTimestamp: resetTs }),
+    });
+  } catch {}
+
+  // 7. Pastikan kembali localStorage tetap kosong
   try {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
   } catch {}

@@ -11,6 +11,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const DELETED_ORDERS_FILE = path.join(DATA_DIR, 'deleted_orders.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -50,6 +51,40 @@ async function startServer() {
   app.get('/api/orders', (_req: Request, res: Response) => {
     const orders = readJsonFile<any[]>(ORDERS_FILE, []);
     res.json(orders);
+  });
+
+  // GET deleted order IDs & reset timestamp (Placed before /:id)
+  app.get('/api/orders/deleted-ids', (_req: Request, res: Response) => {
+    const data = readJsonFile<{ deletedIds: string[]; lastResetAt: number }>(DELETED_ORDERS_FILE, {
+      deletedIds: [],
+      lastResetAt: 0,
+    });
+    res.json(data);
+  });
+
+  // POST deleted order IDs or record reset timestamp
+  app.post('/api/orders/deleted-ids', (req: Request, res: Response) => {
+    const { id, all, ids, resetTimestamp } = req.body || {};
+    const data = readJsonFile<{ deletedIds: string[]; lastResetAt: number }>(DELETED_ORDERS_FILE, {
+      deletedIds: [],
+      lastResetAt: 0,
+    });
+    if (id && typeof id === 'string') {
+      const clean = id.trim();
+      if (!data.deletedIds.includes(clean)) data.deletedIds.push(clean);
+    }
+    if (Array.isArray(ids)) {
+      for (const item of ids) {
+        if (typeof item === 'string' && !data.deletedIds.includes(item.trim())) {
+          data.deletedIds.push(item.trim());
+        }
+      }
+    }
+    if (all || resetTimestamp) {
+      data.lastResetAt = resetTimestamp || Date.now();
+    }
+    writeJsonFile(DELETED_ORDERS_FILE, data);
+    res.json({ success: true, ...data });
   });
 
   // GET search order by query (Invoice ID AST-..., WhatsApp, Player ID)
@@ -218,17 +253,40 @@ async function startServer() {
   // DELETE single order by ID (Admin delete order permanently)
   app.delete('/api/orders/:id', (req: Request, res: Response) => {
     const { id } = req.params;
-    const cleanId = id.trim().toLowerCase();
+    const cleanId = id.trim();
     const orders = readJsonFile<any[]>(ORDERS_FILE, []);
-    const filtered = orders.filter((o) => o.id && o.id.trim().toLowerCase() !== cleanId);
+    const filtered = orders.filter((o) => o.id && o.id.trim().toLowerCase() !== cleanId.toLowerCase());
     writeJsonFile(ORDERS_FILE, filtered);
+
+    // Track deletion
+    const delData = readJsonFile<{ deletedIds: string[]; lastResetAt: number }>(DELETED_ORDERS_FILE, {
+      deletedIds: [],
+      lastResetAt: 0,
+    });
+    if (!delData.deletedIds.includes(cleanId)) {
+      delData.deletedIds.push(cleanId);
+      writeJsonFile(DELETED_ORDERS_FILE, delData);
+    }
     res.json({ success: true, deletedId: id });
   });
 
   // DELETE all orders (Admin reset/clear all orders permanently)
   app.delete('/api/orders', (_req: Request, res: Response) => {
+    const orders = readJsonFile<any[]>(ORDERS_FILE, []);
+    const allIds = orders.map((o) => o?.id).filter(Boolean);
     writeJsonFile(ORDERS_FILE, []);
-    res.json({ success: true, count: 0 });
+
+    // Track reset
+    const delData = readJsonFile<{ deletedIds: string[]; lastResetAt: number }>(DELETED_ORDERS_FILE, {
+      deletedIds: [],
+      lastResetAt: 0,
+    });
+    delData.lastResetAt = Date.now();
+    const combined = Array.from(new Set([...delData.deletedIds, ...allIds]));
+    delData.deletedIds = combined;
+    writeJsonFile(DELETED_ORDERS_FILE, delData);
+
+    res.json({ success: true, count: 0, lastResetAt: delData.lastResetAt });
   });
 
   // ================= API ROUTES FOR PRODUCTS =================

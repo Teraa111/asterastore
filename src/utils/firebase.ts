@@ -452,6 +452,105 @@ export function subscribeToAccountVaultCloud(onVaultChange: (vault: Record<strin
   }
 }
 
+/**
+ * Save single deleted order ID to Firestore config so all browsers purge it
+ */
+export async function saveDeletedOrderIdToCloud(orderId: string): Promise<boolean> {
+  try {
+    const cleanId = orderId.trim();
+    const configDocRef = doc(db, 'config', 'deleted_orders');
+    const existing = await getDoc(configDocRef);
+    let currentIds: string[] = [];
+    if (existing.exists()) {
+      const data = existing.data();
+      if (Array.isArray(data?.deletedIds)) {
+        currentIds = data.deletedIds;
+      }
+    }
+    if (!currentIds.includes(cleanId)) {
+      currentIds.push(cleanId);
+    }
+    await setDoc(configDocRef, {
+      deletedIds: currentIds,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving deleted order to Firestore config:', err);
+    return false;
+  }
+}
 
+/**
+ * Record a full orders reset in Firestore so all other browsers automatically clear their caches
+ */
+export async function saveOrdersResetToCloud(resetTimestamp: number, allDeletedIds: string[] = []): Promise<boolean> {
+  try {
+    const configDocRef = doc(db, 'config', 'deleted_orders');
+    const existing = await getDoc(configDocRef);
+    let currentIds: string[] = [];
+    if (existing.exists()) {
+      const data = existing.data();
+      if (Array.isArray(data?.deletedIds)) {
+        currentIds = data.deletedIds;
+      }
+    }
+    const combined = Array.from(new Set([...currentIds, ...allDeletedIds]));
+    await setDoc(configDocRef, {
+      deletedIds: combined,
+      lastResetAt: resetTimestamp,
+      resetAtIso: new Date(resetTimestamp).toISOString(),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving orders reset to Firestore config:', err);
+    return false;
+  }
+}
 
+/**
+ * Fetch deleted order IDs & reset timestamp from Firestore
+ */
+export async function fetchDeletedOrdersFromCloud(): Promise<{ deletedIds: string[]; lastResetAt: number }> {
+  try {
+    const d = await getDoc(doc(db, 'config', 'deleted_orders'));
+    if (d.exists()) {
+      const data = d.data();
+      return {
+        deletedIds: Array.isArray(data?.deletedIds) ? data.deletedIds : [],
+        lastResetAt: Number(data?.lastResetAt) || 0,
+      };
+    }
+  } catch (err) {
+    console.warn('Error fetching deleted orders from Firestore:', err);
+  }
+  return { deletedIds: [], lastResetAt: 0 };
+}
 
+/**
+ * Real-time listener for deleted order IDs and resets across all browsers
+ */
+export function subscribeToDeletedOrdersCloud(
+  onChange: (info: { deletedIds: string[]; lastResetAt: number }) => void
+): () => void {
+  try {
+    return onSnapshot(
+      doc(db, 'config', 'deleted_orders'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          onChange({
+            deletedIds: Array.isArray(data?.deletedIds) ? data.deletedIds : [],
+            lastResetAt: Number(data?.lastResetAt) || 0,
+          });
+        }
+      },
+      (err) => {
+        console.warn('Firestore deleted orders onSnapshot warning:', err);
+      }
+    );
+  } catch {
+    return () => {};
+  }
+}
