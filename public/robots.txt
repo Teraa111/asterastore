@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://astral-store-b45.pages.dev/sitemap.xml
+Sitemap: https://asterastore.pages.dev/sitemap.xml
