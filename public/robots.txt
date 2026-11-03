@@ -1,6 +1,6 @@
-# robots.txt for Aster4 STORE
+# robots.txt for ASTERA STORE
 User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: /sitemap.xml
+Sitemap: https://astral-store-b45.pages.dev/sitemap.xml
