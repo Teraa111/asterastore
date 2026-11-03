@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Flame, Plus, Trash2, Edit3, X, Image as ImageIcon, Check } from 'lucide-react';
-import heroImg from '../assets/images/hero_gaming_promo_1792561230749.jpg';
-import aspirantsImg from '../assets/images/Aspirants Team _ 9 girls 1 crew.jpeg';
-
 import { isAdminSession } from '../utils/storage';
 
 export interface EventBannerItem {
@@ -11,7 +8,7 @@ export interface EventBannerItem {
   targetProduct?: 'mlbb-advance-server' | 'mlbb-bbcoin';
 }
 
-const STORAGE_KEY_BANNERS = 'storeadv_event_banners_v3';
+const STORAGE_KEY_BANNERS = 'storeadv_event_banners_v5';
 
 const DEFAULT_EVENT_BANNERS: EventBannerItem[] = [
   {
@@ -20,13 +17,13 @@ const DEFAULT_EVENT_BANNERS: EventBannerItem[] = [
     targetProduct: 'mlbb-bbcoin',
   },
   {
-    id: 'banner-advance',
-    image: heroImg,
-    targetProduct: 'mlbb-advance-server',
+    id: 'banner-bruno-collector',
+    image: '/assets/aistudio/image_405344a4.png',
+    targetProduct: 'mlbb-bbcoin',
   },
   {
-    id: 'banner-aspirants',
-    image: aspirantsImg,
+    id: 'banner-kagura-legend',
+    image: '/assets/aistudio/image_c635ca4c.png',
     targetProduct: 'mlbb-bbcoin',
   },
 ];
@@ -45,7 +42,10 @@ export const PromoCarousel: React.FC<PromoCarouselProps> = ({ onSelectProduct, i
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const hasOldAi = parsed.some((b: any) => typeof b.image === 'string' && b.image.includes('hero_gaming_promo'));
+          if (!hasOldAi) {
+            return parsed;
+          }
         }
       }
     } catch {}
