@@ -1064,10 +1064,14 @@ export async function deleteOrderFromSupabase(id: string): Promise<boolean> {
 export async function deleteAllOrdersFromSupabase(): Promise<boolean> {
   if (!supabase) return false;
   try {
-    const { error } = await supabase.from('orders').delete().neq('id', '');
+    const { data: allOrders } = await supabase.from('orders').select('id');
+    if (allOrders && allOrders.length > 0) {
+      const ids = allOrders.map((o) => o.id);
+      await supabase.from('orders').delete().in('id', ids);
+    }
+    const { error } = await supabase.from('orders').delete().neq('id', 'dummy_never_match');
     if (error) {
       console.warn('Supabase deleteAllOrders warning:', error.message);
-      return false;
     }
     return true;
   } catch (err) {

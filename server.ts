@@ -215,6 +215,22 @@ async function startServer() {
     res.json(order);
   });
 
+  // DELETE single order by ID (Admin delete order permanently)
+  app.delete('/api/orders/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const cleanId = id.trim().toLowerCase();
+    const orders = readJsonFile<any[]>(ORDERS_FILE, []);
+    const filtered = orders.filter((o) => o.id && o.id.trim().toLowerCase() !== cleanId);
+    writeJsonFile(ORDERS_FILE, filtered);
+    res.json({ success: true, deletedId: id });
+  });
+
+  // DELETE all orders (Admin reset/clear all orders permanently)
+  app.delete('/api/orders', (_req: Request, res: Response) => {
+    writeJsonFile(ORDERS_FILE, []);
+    res.json({ success: true, count: 0 });
+  });
+
   // ================= API ROUTES FOR PRODUCTS =================
   app.get('/api/products', (_req: Request, res: Response) => {
     const products = readJsonFile<any[]>(PRODUCTS_FILE, []);

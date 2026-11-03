@@ -32,74 +32,76 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   }, []);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/60 mb-10 shadow-2xl">
-      {/* Background Hero Image with Measured Scrim */}
+    <div className="relative w-full overflow-hidden rounded-2xl border-2 border-purple-800/80 bg-[#16082b]/90 mb-10 shadow-[0_8px_0_0_#3b0764]">
+      {/* Background Hero Image with Measured Purple Arcade Scrim */}
       <div className="absolute inset-0 z-0">
         <img
           src={heroImg}
           alt="ASTERA STORE Mobile Legends"
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center brightness-35 transition-all duration-300"
+          className="w-full h-full object-cover object-center brightness-30 transition-all duration-300"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/75 to-neutral-950/40" />
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/95 via-neutral-950/75 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0e051e] via-[#0e051e]/85 to-[#0e051e]/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0e051e]/95 via-[#1a0833]/80 to-transparent" />
       </div>
 
       <div className="relative z-10 px-6 sm:px-10 py-10 sm:py-14 max-w-4xl">
-        {/* Editorial Subtitle / Kicker */}
+        {/* Editorial Subtitle / Kicker with Pixel Gamer Aesthetic */}
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-blue-400 font-bold text-xs tracking-wider uppercase">
-            ASTERA STORE · SPESIALIS RESMI MLBB
+          <span className="font-pixel text-purple-400 text-xs tracking-widest uppercase">
+            ★ ASTERA STORE · ARCADE SPECIALIST ★
           </span>
-          <span className="text-neutral-600">·</span>
-          <span className="text-red-400 text-xs font-semibold">Data Akun Langsung Tampil di Website</span>
+          <span className="text-purple-600">·</span>
+          <span className="font-pixel text-fuchsia-300 text-xs tracking-wider">
+            DATA AKUN INSTAN DI WEB
+          </span>
         </div>
 
-        {/* Display Headline */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight max-w-2xl text-balance">
-          Akun Advance Server & <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-red-500">Top Up Diamond BB Coin</span>
+        {/* Display Headline with Pixel Gamer Font */}
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-pixel tracking-wide text-white leading-tight max-w-2xl text-balance drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)]">
+          AKUN ADVANCE SERVER & <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-300 to-amber-300">TOP UP BB COIN</span>
         </h1>
 
-        <p className="mt-3 text-sm sm:text-base text-neutral-300 max-w-xl leading-relaxed">
-          Platform resmi <strong>ASTERA STORE</strong> untuk <strong>Akun Mobile Legends Advance Server</strong> (kredensial login email/password langsung muncul di website setelah bayar) dan <strong>Top Up Diamond hemat via BB Coin</strong> auto-konversi 5:1 instan.
+        <p className="mt-4 text-sm sm:text-base text-purple-100/90 max-w-xl leading-relaxed">
+          Toko arcade game resmi <strong>ASTERA STORE</strong>. Menyediakan <strong>Akun Mobile Legends Advance Server</strong> (kredensial login email/password langsung muncul di website setelah bayar) dan <strong>Top Up Diamond BB Coin</strong> auto-konversi 5:1 instan.
         </p>
 
-        {/* Direct Product Selector CTAs */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-3.5 max-w-xl">
+        {/* 3D Retro Arcade Button CTAs (Modeled after arcade button plates) */}
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 max-w-xl">
           <button
             onClick={() => onSelectProduct('mlbb-advance-server')}
-            className="flex-1 px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white border border-blue-500/30 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2.5"
+            className="arcade-btn-purple flex-1 px-6 py-4 rounded-xl text-white font-pixel text-sm tracking-wider flex items-center justify-center gap-2.5 drop-shadow-md"
           >
             <UserCheck className="w-4 h-4 text-white" />
-            <span>Beli Akun Advance Server</span>
+            <span>BELI AKUN ADVANCE</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
           <button
             onClick={() => onSelectProduct('mlbb-bbcoin')}
-            className="flex-1 px-5 py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white border border-red-500/30 rounded-xl text-sm font-bold transition-all shadow-lg shadow-red-600/30 flex items-center justify-center gap-2.5"
+            className="arcade-btn-cyan flex-1 px-6 py-4 rounded-xl text-white font-pixel text-sm tracking-wider flex items-center justify-center gap-2.5 drop-shadow-md"
           >
             <Coins className="w-4 h-4 text-white" />
-            <span>Top Up BB Coin (Auto Konversi 5:1)</span>
+            <span>TOP UP BB COIN (5:1)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Feature Highlights Strip */}
-        <div className="mt-8 pt-6 border-t border-neutral-800/80 flex flex-wrap items-center gap-y-3 gap-x-6 text-xs text-neutral-300">
-          <div className="flex items-center gap-1.5 text-blue-400">
-            <Key className="w-3.5 h-3.5" />
-            <span>Data Akun Kirim Instan di Web</span>
+        {/* Feature Highlights Strip in Arcade Style */}
+        <div className="mt-8 pt-6 border-t-2 border-purple-900/60 flex flex-wrap items-center gap-y-3 gap-x-6 text-xs text-purple-200">
+          <div className="flex items-center gap-2 text-purple-300 font-pixel tracking-wide">
+            <Key className="w-3.5 h-3.5 text-purple-400" />
+            <span>KIRIM DATA DI WEBSITE</span>
           </div>
-          <span className="text-neutral-700">·</span>
-          <div className="flex items-center gap-1.5 text-emerald-400">
-            <Zap className="w-3.5 h-3.5" />
-            <span>BB Coin Auto-Konversi 5:1 (1-3 Detik)</span>
+          <span className="text-purple-700">·</span>
+          <div className="flex items-center gap-2 text-cyan-300 font-pixel tracking-wide">
+            <Zap className="w-3.5 h-3.5 text-cyan-400" />
+            <span>AUTO-KONVERSI 5:1 (INSTAN)</span>
           </div>
-          <span className="text-neutral-700">·</span>
-          <div className="flex items-center gap-1.5 text-red-400">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Garansi Anti-Hackback 100%</span>
+          <span className="text-purple-700">·</span>
+          <div className="flex items-center gap-2 text-amber-300 font-pixel tracking-wide">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span>GARANSI ANTI-HACKBACK</span>
           </div>
         </div>
       </div>

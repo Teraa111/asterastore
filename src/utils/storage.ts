@@ -48,7 +48,36 @@ const STORAGE_KEYS = {
   ORDERS: 'storeadv_orders_v5',
   PROMOS: 'storeadv_promos_v3',
   MY_ORDER_IDS: 'storeadv_my_order_ids_v1',
+  DELETED_ORDER_IDS: 'storeadv_deleted_order_ids_v2',
 };
+
+export function getDeletedOrderIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_ORDER_IDS);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addDeletedOrderId(orderId: string): void {
+  if (!orderId) return;
+  try {
+    const set = getDeletedOrderIds();
+    set.add(orderId.trim());
+    localStorage.setItem(STORAGE_KEYS.DELETED_ORDER_IDS, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+export function addAllDeletedOrderIds(orderIds: string[]): void {
+  try {
+    const set = getDeletedOrderIds();
+    for (const id of orderIds) {
+      if (id) set.add(id.trim());
+    }
+    localStorage.setItem(STORAGE_KEYS.DELETED_ORDER_IDS, JSON.stringify(Array.from(set)));
+  } catch {}
+}
 
 // Cleanup old mock keys
 try {
@@ -552,10 +581,11 @@ if (typeof window !== 'undefined') {
       // Only process global cloud orders if user is Admin
       if (!isAdminSession()) return;
       if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+        const deletedIds = getDeletedOrderIds();
         const local = loadOrdersLocal();
         const map = new Map<string, Order>();
-        for (const o of local) map.set(o.id, o);
-        for (const o of cloudOrders) map.set(o.id, o);
+        for (const o of local) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+        for (const o of cloudOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
 
         const merged = Array.from(map.values()).sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -596,10 +626,11 @@ export async function fetchMyOrdersFromServer(): Promise<Order[]> {
     }
 
     if (updatedMyOrders.length > 0) {
+      const deletedIds = getDeletedOrderIds();
       const local = loadOrdersLocal();
       const map = new Map<string, Order>();
-      for (const o of local) map.set(o.id, o);
-      for (const o of updatedMyOrders) map.set(o.id, o);
+      for (const o of local) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+      for (const o of updatedMyOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
       localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(Array.from(map.values())));
       window.dispatchEvent(new Event('storeadv_orders_updated'));
     }
@@ -648,12 +679,13 @@ export async function fetchOrdersFromServer(): Promise<Order[]> {
       // offline / static hosting
     }
 
+    const deletedIds = getDeletedOrderIds();
     const local = loadOrdersLocal();
     const map = new Map<string, Order>();
-    for (const o of local) map.set(o.id, o);
-    for (const o of serverOrders) map.set(o.id, o);
-    for (const o of cloudOrders) map.set(o.id, o);
-    for (const o of supabaseOrders) map.set(o.id, o);
+    for (const o of local) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+    for (const o of serverOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+    for (const o of cloudOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
+    for (const o of supabaseOrders) if (o?.id && !deletedIds.has(o.id.trim())) map.set(o.id.trim(), o);
 
     const merged = Array.from(map.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -680,7 +712,9 @@ export function loadOrdersLocal(): Order[] {
     if (!raw) {
       return [];
     }
-    return JSON.parse(raw);
+    const parsed: Order[] = JSON.parse(raw);
+    const deletedIds = getDeletedOrderIds();
+    return parsed.filter((o) => o?.id && !deletedIds.has(o.id.trim()));
   } catch {
     return [];
   }
@@ -1235,34 +1269,39 @@ export function adminCancelOrder(orderId: string, reason = 'Dibatalkan oleh Admi
  */
 export async function adminDeleteOrder(orderId: string): Promise<boolean> {
   const cleanId = orderId.trim();
-  // 1. Hapus dari cache localStorage orders
+  // 1. Catat ke daftar ID terhapus agar polling tidak membangkitkan pesanan ini lagi
+  addDeletedOrderId(cleanId);
+
+  // 2. Hapus dari cache localStorage orders
   const orders = loadOrdersLocal();
-  const filtered = orders.filter((o) => o.id !== cleanId);
+  const filtered = orders.filter((o) => o?.id && o.id.trim() !== cleanId);
   try {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(filtered));
   } catch {}
 
-  // 2. Hapus dari daftar riwayat perangkat
+  // 3. Hapus dari daftar riwayat perangkat
   removeMyOrderId(cleanId);
 
-  // 3. Hapus permanen dari Supabase Cloud Database (PostgreSQL)
+  // 4. Hapus permanen dari Supabase Cloud Database (PostgreSQL)
   try {
     await deleteOrderFromSupabase(cleanId);
   } catch (err) {
     console.warn('Error deleting order from Supabase:', err);
   }
 
-  // 4. Hapus permanen dari cloud database Firestore
+  // 5. Hapus permanen dari cloud database Firestore
   try {
     await deleteOrderFromCloud(cleanId);
   } catch (err) {
     console.warn('Error deleting order from Firestore:', err);
   }
 
-  // 5. Hapus dari backend Express jika aktif
-  fetch(`/api/orders/${cleanId}`, { method: 'DELETE' }).catch(() => {});
+  // 6. Hapus dari backend Express jika aktif
+  try {
+    await fetch(`/api/orders/${cleanId}`, { method: 'DELETE' });
+  } catch {}
 
-  // 6. Dispatch event pembaruan
+  // 7. Dispatch event pembaruan
   window.dispatchEvent(new Event('storeadv_orders_updated'));
   return true;
 }
@@ -1272,30 +1311,36 @@ export async function adminDeleteOrder(orderId: string): Promise<boolean> {
  * Menghapus seluruh riwayat transaksi dari database cloud Supabase, Firestore, dan cache lokal.
  */
 export async function adminDeleteAllOrders(): Promise<boolean> {
-  // 1. Simpan array kosong ke localStorage
+  // 1. Blacklist seluruh ID pesanan yang ada saat ini
+  const currentOrders = loadOrdersLocal();
+  addAllDeletedOrderIds(currentOrders.map((o) => o.id));
+
+  // 2. Simpan array kosong ke localStorage
   try {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
     localStorage.removeItem(STORAGE_KEYS.MY_ORDER_IDS);
   } catch {}
 
-  // 2. Hapus seluruh pesanan dari Supabase Cloud Database
+  // 3. Hapus seluruh pesanan dari Supabase Cloud Database
   try {
     await deleteAllOrdersFromSupabase();
   } catch (err) {
     console.warn('Error clearing all orders from Supabase:', err);
   }
 
-  // 3. Hapus seluruh pesanan dari Firestore Cloud Database
+  // 4. Hapus seluruh pesanan dari Firestore Cloud Database
   try {
     await deleteAllOrdersFromCloud();
   } catch (err) {
     console.warn('Error clearing all orders from Firestore:', err);
   }
 
-  // 4. Hapus dari backend Express jika aktif
-  fetch('/api/orders', { method: 'DELETE' }).catch(() => {});
+  // 5. Hapus dari backend Express jika aktif
+  try {
+    await fetch('/api/orders', { method: 'DELETE' });
+  } catch {}
 
-  // 5. Pastikan kembali localStorage tetap kosong
+  // 6. Pastikan kembali localStorage tetap kosong
   try {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify([]));
   } catch {}

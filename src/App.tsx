@@ -14,6 +14,7 @@ import { AdminAuthModal } from './components/AdminAuthModal';
 import { MlCalculatorModal } from './components/MlCalculatorModal';
 import { Footer } from './components/Footer';
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
+import { PromoCarousel } from './components/PromoCarousel';
 import { Sparkles, Key, Coins, ShieldCheck, Zap, Receipt, ExternalLink, X } from 'lucide-react';
 
 export default function App() {
@@ -159,7 +160,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-100 font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-[#0b0416] bg-arcade-grid text-neutral-100 font-sans selection:bg-purple-600 selection:text-white">
       {/* Universal Top Bar */}
       <Navbar
         currentView={currentView}
@@ -193,7 +194,7 @@ export default function App() {
             />
           ) : (
             <div className="py-20 text-center">
-              <p className="text-neutral-400">Memerlukan autentikasi PIN...</p>
+              <p className="font-pixel text-purple-300">MEMERLUKAN AUTENTIKASI PIN...</p>
             </div>
           )
         ) : selectedProduct ? (
@@ -212,52 +213,55 @@ export default function App() {
               onQuickTrack={() => setIsTrackerOpen(true)}
             />
 
-            {/* Value Proposition Strip */}
-            <div className="mb-10 p-5 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-900 to-blue-950/40 border border-neutral-800">
+            {/* Kolom Promosi & Event Slider (Under Main Description) */}
+            <PromoCarousel onSelectProduct={handleSelectProductId} isAdmin={isAdminAuthenticated} />
+
+            {/* Value Proposition Strip in Retro Arcade Chassis */}
+            <div className="mb-10 p-5 rounded-2xl bg-[#140628]/95 border-2 border-purple-800/80 shadow-[0_6px_0_0_#380b61]">
               <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold shrink-0">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-purple-900/60 border-2 border-purple-500/50 text-purple-300 flex items-center justify-center shrink-0 shadow-[0_2px_0_0_#4c1d95]">
                     <Key className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-extrabold text-white text-base tracking-tight">
-                      Pengiriman Data Akun Instan di Website
+                    <h2 className="font-pixel text-white text-base tracking-wide">
+                      PENGIRIMAN DATA AKUN INSTAN DI WEBSITE
                     </h2>
-                    <p className="text-xs text-neutral-400">
+                    <p className="text-xs text-purple-200/80 mt-0.5 leading-relaxed">
                       Email & Password Akun Advance Server langsung keluar di layar setelah pembayaran diverifikasi otomatis.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-600/20 text-red-400 flex items-center justify-center font-bold shrink-0">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-cyan-900/60 border-2 border-cyan-500/50 text-cyan-300 flex items-center justify-center shrink-0 shadow-[0_2px_0_0_#164e63]">
                     <Coins className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-extrabold text-white text-base tracking-tight">
-                      BB Coin Auto-Konversi 5:1 Diamond
+                    <h2 className="font-pixel text-white text-base tracking-wide">
+                      BB COIN AUTO-KONVERSI 5:1 DIAMOND
                     </h2>
-                    <p className="text-xs text-neutral-400">
-                      Jalur resmi Bang Bang Coin Moonton dengan auto-konversi rasio 5:1 (5 BB Coin = 1 Diamond) langsung masuk ke akun Anda.
+                    <p className="text-xs text-purple-200/80 mt-0.5 leading-relaxed">
+                      Jalur resmi Bang Bang Coin Moonton dengan auto-konversi rasio 5:1 langsung masuk ke akun game Anda.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Catalog Section Header */}
-            <div className="mb-6 pb-3 border-b border-neutral-800 flex items-center justify-between">
+            {/* Catalog Section Header in Arcade Pixel Typography */}
+            <div className="mb-6 pb-3 border-b-2 border-purple-900/70 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-extrabold text-white tracking-tight">
-                  Pilih Layanan Utama ASTERA STORE
+                <h2 className="text-xl sm:text-2xl font-pixel text-white tracking-wide">
+                  PILIH LAYANAN ARCADE
                 </h2>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  Tersedia 2 produk spesialis Mobile Legends dengan sistem inventaris dan pengiriman otomatis.
+                <p className="text-xs font-pixel text-purple-300/80 mt-1">
+                  2 PRODUK UTAMA DENGAN SISTEM PENGIRIMAN OTOMATIS
                 </p>
               </div>
 
-              <span className="text-xs font-mono text-blue-400 bg-blue-950/60 border border-blue-900 px-3 py-1 rounded-full">
-                2 Produk Aktif
+              <span className="text-xs font-pixel text-purple-200 bg-[#230c44] border-2 border-purple-600/70 px-3.5 py-1.5 rounded-xl shadow-[0_2px_0_0_#4c1d95]">
+                ★ 2 PRODUK AKTIF ★
               </span>
             </div>
 

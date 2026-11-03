@@ -1,1 +1,67 @@
 @import "tailwindcss";
+
+@theme {
+  --font-pixel: 'Pixelify Sans', cursive, monospace;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Retro Arcade Game Scanlines & Grid Texture */
+.bg-arcade-grid {
+  background-size: 28px 28px;
+  background-image: 
+    linear-gradient(to right, rgba(168, 85, 247, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(168, 85, 247, 0.07) 1px, transparent 1px);
+}
+
+/* Retro Arcade 3D Plate Button Effect */
+.arcade-btn-purple {
+  position: relative;
+  border-width: 2px;
+  border-color: #c084fc;
+  background-color: #7e22ce;
+  box-shadow: 0 4px 0 0 #3b0764;
+  transition: all 0.1s ease-in-out;
+}
+.arcade-btn-purple:hover {
+  background-color: #9333ea;
+  border-color: #d8b4fe;
+}
+.arcade-btn-purple:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #3b0764;
+}
+
+.arcade-btn-cyan {
+  position: relative;
+  border-width: 2px;
+  border-color: #67e8f9;
+  background-color: #0891b2;
+  box-shadow: 0 4px 0 0 #164e63;
+  transition: all 0.1s ease-in-out;
+}
+.arcade-btn-cyan:hover {
+  background-color: #06b6d4;
+  border-color: #a5f3fc;
+}
+.arcade-btn-cyan:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #164e63;
+}
+
+.arcade-btn-amber {
+  position: relative;
+  border-width: 2px;
+  border-color: #fde047;
+  background-color: #d97706;
+  box-shadow: 0 4px 0 0 #78350f;
+  transition: all 0.1s ease-in-out;
+}
+.arcade-btn-amber:hover {
+  background-color: #f59e0b;
+  border-color: #fef08a;
+}
+.arcade-btn-amber:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #78350f;
+}
