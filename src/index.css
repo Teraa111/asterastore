@@ -6,12 +6,20 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Retro Arcade Game Scanlines & Grid Texture */
+/* Retro Arcade Game Scanlines & Grid Texture (Dark Theme) */
 .bg-arcade-grid {
   background-size: 28px 28px;
   background-image: 
     linear-gradient(to right, rgba(168, 85, 247, 0.07) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(168, 85, 247, 0.07) 1px, transparent 1px);
+}
+
+/* Light Theme Sky & Cloud Retro Game Grid Texture */
+[data-theme="light"] .bg-arcade-grid {
+  background-size: 28px 28px;
+  background-image: 
+    linear-gradient(to right, rgba(2, 132, 199, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(2, 132, 199, 0.08) 1px, transparent 1px);
 }
 
 /* Retro Arcade 3D Plate Button Effect */
@@ -65,3 +73,343 @@
   transform: translateY(3px);
   box-shadow: 0 1px 0 0 #78350f;
 }
+
+/* Pixel Coral / Terracotta Button (From Pixel Gamer Sky Reference) */
+.arcade-btn-coral {
+  position: relative;
+  border-width: 2px;
+  border-color: #fca5a5;
+  background-color: #e05d44;
+  box-shadow: 0 4px 0 0 #991b1b;
+  transition: all 0.1s ease-in-out;
+  color: #ffffff !important;
+}
+.arcade-btn-coral:hover {
+  background-color: #ea580c;
+  border-color: #fecaca;
+}
+.arcade-btn-coral:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #991b1b;
+}
+
+/* Light Theme Sky Gamer Overrides (Pixel Balloon Race Aesthetic) */
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="light"] body {
+  background-color: #eaf4fd;
+  color: #0f172a;
+}
+
+/* Surfaces and Cards in Light Theme */
+[data-theme="light"] [class*="bg-neutral-900"],
+[data-theme="light"] .bg-\[\#140628\],
+[data-theme="light"] .bg-\[\#16082c\],
+[data-theme="light"] .bg-\[\#1a0b36\],
+[data-theme="light"] .bg-\[\#1a0933\],
+[data-theme="light"] .bg-\[\#1b0838\],
+[data-theme="light"] .bg-\[\#200d3d\],
+[data-theme="light"] .bg-\[\#0e2136\] {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+  color: #1e293b;
+}
+
+[data-theme="light"] [class*="bg-neutral-950"],
+[data-theme="light"] .bg-\[\#0c0417\],
+[data-theme="light"] .bg-\[\#0b0416\],
+[data-theme="light"] .bg-\[\#0e051e\] {
+  background-color: #f0f7ff !important;
+  border-color: #bae6fd !important;
+  color: #1e293b;
+}
+
+[data-theme="light"] [class*="bg-neutral-800"] {
+  background-color: #e2eef8 !important;
+  border-color: #93c5fd !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] [class*="bg-neutral-700"] {
+  background-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Borders & Shadow Accents in Light Theme */
+[data-theme="light"] [class*="border-neutral-800"],
+[data-theme="light"] [class*="border-neutral-700"],
+[data-theme="light"] [class*="divide-neutral-800"],
+[data-theme="light"] .border-purple-900\/80,
+[data-theme="light"] .border-purple-900\/70,
+[data-theme="light"] .border-purple-900\/60,
+[data-theme="light"] .border-purple-800\/80,
+[data-theme="light"] .border-purple-700\/60 {
+  border-color: #bae6fd !important;
+}
+
+/* ========================================================= */
+/* Admin Portal & Admin Modals in Light Theme */
+/* ========================================================= */
+[data-theme="light"] .admin-portal-root,
+[data-theme="light"] .admin-modal {
+  color: #0f172a;
+}
+
+/* Surfaces in Admin */
+[data-theme="light"] .admin-portal-root [class*="bg-neutral-900"],
+[data-theme="light"] .admin-modal[class*="bg-neutral-900"],
+[data-theme="light"] .admin-modal [class*="bg-neutral-900"] {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+  color: #0f172a;
+}
+
+[data-theme="light"] .admin-portal-root [class*="bg-neutral-950"],
+[data-theme="light"] .admin-modal [class*="bg-neutral-950"] {
+  background-color: #f0f7ff !important;
+  border-color: #bae6fd !important;
+  color: #0f172a;
+}
+
+[data-theme="light"] .admin-portal-root [class*="bg-neutral-800"],
+[data-theme="light"] .admin-modal [class*="bg-neutral-800"] {
+  background-color: #e2eef8 !important;
+  border-color: #93c5fd !important;
+  color: #0f172a !important;
+}
+
+/* Headings, Titles and Text-White on Light Admin Surfaces */
+[data-theme="light"] .admin-portal-root h1,
+[data-theme="light"] .admin-portal-root h2,
+[data-theme="light"] .admin-portal-root h3,
+[data-theme="light"] .admin-portal-root h4,
+[data-theme="light"] .admin-modal h1,
+[data-theme="light"] .admin-modal h2,
+[data-theme="light"] .admin-modal h3,
+[data-theme="light"] .admin-modal h4 {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .admin-portal-root .text-white,
+[data-theme="light"] .admin-modal .text-white {
+  color: #0f172a !important;
+}
+
+/* KEEP WHITE TEXT for solid colored buttons, chips & badges */
+[data-theme="light"] .admin-portal-root button[class*="bg-blue"] *,
+[data-theme="light"] .admin-portal-root button[class*="bg-red"] *,
+[data-theme="light"] .admin-portal-root button[class*="bg-emerald"] *,
+[data-theme="light"] .admin-portal-root button[class*="bg-purple"] *,
+[data-theme="light"] .admin-portal-root button[class*="bg-gradient"] *,
+[data-theme="light"] .admin-portal-root button[class*="arcade-btn"] *,
+[data-theme="light"] .admin-portal-root [class*="bg-blue-600"] *,
+[data-theme="light"] .admin-portal-root [class*="bg-red-600"] *,
+[data-theme="light"] .admin-portal-root [class*="bg-emerald-600"] *,
+[data-theme="light"] .admin-portal-root [class*="bg-purple-600"] *,
+[data-theme="light"] .admin-portal-root .arcade-btn-purple,
+[data-theme="light"] .admin-portal-root .arcade-btn-cyan,
+[data-theme="light"] .admin-portal-root .arcade-btn-amber,
+[data-theme="light"] .admin-portal-root .arcade-btn-coral,
+[data-theme="light"] .admin-modal button[class*="bg-"] *,
+[data-theme="light"] .admin-modal button[class*="bg-gradient"] *,
+[data-theme="light"] .admin-modal [class*="bg-red-600"] *,
+[data-theme="light"] .admin-modal [class*="bg-blue-600"] *,
+[data-theme="light"] .admin-modal [class*="arcade-btn"] * {
+  color: #ffffff !important;
+}
+
+/* Neutral Text High Contrast in Admin */
+[data-theme="light"] .admin-portal-root .text-neutral-300,
+[data-theme="light"] .admin-portal-root .text-neutral-400,
+[data-theme="light"] .admin-portal-root .text-neutral-500,
+[data-theme="light"] .admin-modal .text-neutral-300,
+[data-theme="light"] .admin-modal .text-neutral-400,
+[data-theme="light"] .admin-modal .text-neutral-500 {
+  color: #334155 !important;
+}
+
+/* Accent Colors: Deepen for high readability on light backgrounds */
+[data-theme="light"] .admin-portal-root .text-blue-400,
+[data-theme="light"] .admin-modal .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+
+[data-theme="light"] .admin-portal-root .text-emerald-400,
+[data-theme="light"] .admin-modal .text-emerald-400 {
+  color: #047857 !important;
+}
+
+[data-theme="light"] .admin-portal-root .text-amber-400,
+[data-theme="light"] .admin-modal .text-amber-400 {
+  color: #b45309 !important;
+}
+
+[data-theme="light"] .admin-portal-root .text-teal-400,
+[data-theme="light"] .admin-portal-root .text-teal-300,
+[data-theme="light"] .admin-modal .text-teal-400,
+[data-theme="light"] .admin-modal .text-teal-300 {
+  color: #0f766e !important;
+}
+
+[data-theme="light"] .admin-portal-root .text-red-400,
+[data-theme="light"] .admin-portal-root .text-rose-400,
+[data-theme="light"] .admin-modal .text-red-400,
+[data-theme="light"] .admin-modal .text-rose-400 {
+  color: #b91c1c !important;
+}
+
+/* Status Pill Badges in Admin */
+[data-theme="light"] .admin-portal-root [class*="bg-emerald-950"],
+[data-theme="light"] .admin-modal [class*="bg-emerald-950"] {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border-color: #86efac !important;
+}
+
+[data-theme="light"] .admin-portal-root [class*="bg-red-950"],
+[data-theme="light"] .admin-modal [class*="bg-red-950"] {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+}
+
+[data-theme="light"] .admin-portal-root [class*="bg-amber-950"],
+[data-theme="light"] .admin-modal [class*="bg-amber-950"] {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fcd34d !important;
+}
+
+[data-theme="light"] .admin-portal-root [class*="bg-teal-950"],
+[data-theme="light"] .admin-modal [class*="bg-teal-950"] {
+  background-color: #ccfbf1 !important;
+  color: #0f766e !important;
+  border-color: #5eead4 !important;
+}
+
+/* Tables in Admin */
+[data-theme="light"] .admin-portal-root table thead,
+[data-theme="light"] .admin-modal table thead {
+  background-color: #e0f2fe !important;
+  border-color: #bae6fd !important;
+}
+
+[data-theme="light"] .admin-portal-root table thead th,
+[data-theme="light"] .admin-modal table thead th {
+  color: #0369a1 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .admin-portal-root table tbody tr,
+[data-theme="light"] .admin-modal table tbody tr {
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .admin-portal-root table tbody tr:hover,
+[data-theme="light"] .admin-modal table tbody tr:hover {
+  background-color: #f0f9ff !important;
+}
+
+[data-theme="light"] .admin-portal-root table tbody td,
+[data-theme="light"] .admin-modal table tbody td {
+  color: #1e293b;
+}
+
+/* Admin Tabs Strip */
+[data-theme="light"] .admin-portal-root .flex.items-center.gap-2.p-1\.5 {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+}
+
+[data-theme="light"] .admin-portal-root .flex.items-center.gap-2.p-1\.5 > button:not([class*="from-blue"]):not([class*="from-purple"]):not([class*="from-emerald"]) {
+  color: #334155 !important;
+}
+
+[data-theme="light"] .admin-portal-root .flex.items-center.gap-2.p-1\.5 > button:not([class*="from-blue"]):not([class*="from-purple"]):not([class*="from-emerald"]):hover {
+  color: #0284c7 !important;
+  background-color: #e0f2fe !important;
+}
+
+/* Text Hierarchy in Light Theme */
+[data-theme="light"] h1:not(.hero-banner-title):not(.preserve-light-text),
+[data-theme="light"] h2:not(.hero-banner-title):not(.preserve-light-text),
+[data-theme="light"] h3:not(.hero-banner-title):not(.preserve-light-text),
+[data-theme="light"] h4:not(.hero-banner-title):not(.preserve-light-text) {
+  color: #0f172a;
+}
+
+[data-theme="light"] .text-neutral-100:not(.preserve-light-text) {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .text-neutral-300:not(.preserve-light-text),
+[data-theme="light"] .text-neutral-400:not(.preserve-light-text),
+[data-theme="light"] :not(.hero-arcade-banner) > .text-purple-200:not(.preserve-light-text),
+[data-theme="light"] :not(.hero-arcade-banner) > .text-purple-300:not(.preserve-light-text),
+[data-theme="light"] :not(.hero-arcade-banner) > .text-purple-300\/80:not(.preserve-light-text),
+[data-theme="light"] :not(.hero-arcade-banner) > .text-purple-200\/80:not(.preserve-light-text) {
+  color: #475569 !important;
+}
+
+/* Hero Arcade Banner & Dark Cover Surfaces: High-contrast illumination */
+.hero-arcade-banner h1,
+[data-theme="light"] .hero-arcade-banner h1,
+.hero-banner-title {
+  color: #ffffff !important;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.95);
+}
+
+.hero-arcade-banner p,
+[data-theme="light"] .hero-arcade-banner p {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.preserve-light-text {
+  color: #ffffff !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* Form Controls in Light Theme */
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #7dd3fc !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Ensure Arcade buttons maintain bright text and bold appearance */
+.arcade-btn-purple,
+.arcade-btn-cyan,
+.arcade-btn-amber,
+.arcade-btn-coral {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .arcade-btn-purple {
+  background-color: #7c3aed !important;
+  border-color: #a78bfa !important;
+  box-shadow: 0 4px 0 0 #4c1d95 !important;
+}
+
+[data-theme="light"] .arcade-btn-cyan {
+  background-color: #0284c7 !important;
+  border-color: #7dd3fc !important;
+  box-shadow: 0 4px 0 0 #0369a1 !important;
+}
+
+[data-theme="light"] .arcade-btn-amber {
+  background-color: #d97706 !important;
+  border-color: #fde047 !important;
+  box-shadow: 0 4px 0 0 #78350f !important;
+}
+
+

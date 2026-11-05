@@ -954,7 +954,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24">
+    <div className="admin-portal-root max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-neutral-800">
         <div>
@@ -2918,7 +2918,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: TAMBAH STOK AKUN ADVANCE ================= */}
       {showAddAccountModal && accountProduct && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in">
+          <div className="admin-modal bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
               <h3 className="text-base font-bold text-white">Tambah Stok Akun Advance Server</h3>
               <button onClick={() => setShowAddAccountModal(false)} className="text-neutral-400 hover:text-white">
@@ -3018,7 +3018,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: EDIT PRICE ================= */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in">
+          <div className="admin-modal bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
               <div>
                 <h3 className="text-base font-bold text-white">Edit Harga & Status Paket</h3>
@@ -3134,7 +3134,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: GANTI PIN KEAMANAN ================= */}
       {showChangePinModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+          <div className="admin-modal bg-neutral-900 border border-neutral-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
             <button
               onClick={() => setShowChangePinModal(false)}
               className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1"
@@ -3217,7 +3217,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: ORDER DETAILS & CREDENTIALS AUDIT ================= */}
       {selectedOrderDetails && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in">
+          <div className="admin-modal bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
               <div>
                 <h3 className="text-base font-bold text-white">Detail Pesanan & Kredensial Terkirim</h3>
@@ -3361,7 +3361,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: EDIT / GANTI KREDENSIAL AKUN (SALAH KETIK / UPDATE) ================= */}
       {editingAccount && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto animate-in fade-in">
+          <div className="admin-modal bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-auto animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center">
@@ -3638,7 +3638,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: EDIT DISPLAY & TAMPILAN PRODUK ================= */}
       {editingProductDisplay && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative my-auto animate-in fade-in">
+          <div className="admin-modal bg-neutral-900 border border-neutral-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative my-auto animate-in fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-600/30">
@@ -3897,7 +3897,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       {/* ================= MODAL: SETUP DATABASE SUPABASE (SQL RUNNER) ================= */}
       {showSqlModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-neutral-900 border border-neutral-700 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl relative my-8 animate-in fade-in duration-200">
+          <div className="admin-modal bg-neutral-900 border border-neutral-700 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl relative my-8 animate-in fade-in duration-200">
             {/* Close Button */}
             <button
               onClick={() => setShowSqlModal(false)}

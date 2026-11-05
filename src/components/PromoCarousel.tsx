@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Flame, Plus, Trash2, Edit3, X, Image as ImageIcon, Check } from 'lucide-react';
 import { isAdminSession } from '../utils/storage';
+import { useTheme } from '../utils/theme';
 
 export interface EventBannerItem {
   id: string;
@@ -34,7 +35,10 @@ interface PromoCarouselProps {
 }
 
 export const PromoCarousel: React.FC<PromoCarouselProps> = ({ onSelectProduct, isAdmin: propIsAdmin }) => {
+  const [theme] = useTheme();
+  const isLight = theme === 'light';
   const isUserAdmin = propIsAdmin ?? isAdminSession();
+
   // Load banners from storage or fallback to defaults
   const [banners, setBanners] = useState<EventBannerItem[]>(() => {
     try {
@@ -156,11 +160,15 @@ export const PromoCarousel: React.FC<PromoCarouselProps> = ({ onSelectProduct, i
       {/* Header bar: EVENT text + Ganti Banner action */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
-          <Flame className="w-4 h-4 text-fuchsia-400 animate-pulse" />
-          <h2 className="font-pixel text-sm sm:text-base text-white tracking-wide uppercase">
+          <Flame className={`w-4 h-4 animate-pulse ${isLight ? 'text-amber-500' : 'text-fuchsia-400'}`} />
+          <h2 className={`font-pixel text-sm sm:text-base tracking-wide uppercase ${isLight ? 'text-slate-900 font-bold' : 'text-white'}`}>
             EVENT
           </h2>
-          <span className="hidden sm:inline-block font-pixel text-[11px] text-purple-400 bg-[#1b0838] border border-purple-700/60 px-2 py-0.5 rounded-lg">
+          <span className={`hidden sm:inline-block font-pixel text-[11px] px-2 py-0.5 rounded-lg border ${
+            isLight
+              ? 'text-sky-800 bg-white border-sky-300 font-semibold'
+              : 'text-purple-400 bg-[#1b0838] border-purple-700/60'
+          }`}>
             {currentIndex + 1}/{banners.length}
           </span>
         </div>
@@ -170,10 +178,14 @@ export const PromoCarousel: React.FC<PromoCarouselProps> = ({ onSelectProduct, i
           <button
             type="button"
             onClick={() => setIsEditModalOpen(true)}
-            className="text-[11px] font-pixel text-purple-200 hover:text-white bg-[#1b0838] hover:bg-[#250d4d] border-2 border-purple-600/70 hover:border-purple-400 px-3 py-1 rounded-xl flex items-center gap-1.5 transition-all shadow-[0_2px_0_0_#4c1d95] active:scale-95"
+            className={`text-[11px] font-pixel px-3 py-1 rounded-xl flex items-center gap-1.5 transition-all active:scale-95 border-2 shadow-[0_2px_0_0] ${
+              isLight
+                ? 'text-sky-900 bg-white hover:bg-sky-50 border-sky-400 shadow-[#0284c7]'
+                : 'text-purple-200 hover:text-white bg-[#1b0838] hover:bg-[#250d4d] border-purple-600/70 hover:border-purple-400 shadow-[#4c1d95]'
+            }`}
             title="Khusus Admin: Klik untuk ganti atau tambah gambar banner event"
           >
-            <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+            <Edit3 className={`w-3.5 h-3.5 ${isLight ? 'text-sky-600' : 'text-purple-400'}`} />
             <span>GANTI BANNER</span>
           </button>
         )}
@@ -181,7 +193,11 @@ export const PromoCarousel: React.FC<PromoCarouselProps> = ({ onSelectProduct, i
 
       {/* Main Banner Slider Container - Pure Clean Artwork ("Polos Aja") */}
       <div
-        className="relative w-full rounded-2xl border-2 border-purple-800/80 bg-[#140628] overflow-hidden shadow-[0_6px_0_0_#380b61] cursor-pointer group select-none"
+        className={`relative w-full rounded-2xl border-2 overflow-hidden cursor-pointer group select-none transition-all ${
+          isLight
+            ? 'border-sky-300 bg-white shadow-[0_6px_0_0_#0284c7]'
+            : 'border-purple-800/80 bg-[#140628] shadow-[0_6px_0_0_#380b61]'
+        }`}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onTouchStart={handleTouchStart}
